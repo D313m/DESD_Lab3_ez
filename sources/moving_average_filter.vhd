@@ -25,56 +25,62 @@ entity moving_average_filter is
 end moving_average_filter;
 
 architecture Behavioral of moving_average_filter is
-	type FILTER_DATA_BUFFER_t is array (0 to 2**FILTER_ORDER_POWER - 1) of std_logic_vector(s_axis_tdata'RANGE);
-	type STEREO_FILTER_DATA_BUFFER_t is array (0 to 1) of FILTER_DATA_BUFFER_t;
-	signal filter_data : STEREO_FILTER_DATA_BUFFER_t;
+	subtype SUM_BUFFER_t is signed(s_axis_tdata'HIGH + FILTER_ORDER_POWER downto 0);
+	signal filter_sum_L : SUM_BUFFER_t;
+	signal filter_sum_R : SUM_BUFFER_t;
+	
+	type DATA_BUFFER_t is array (2**FILTER_ORDER_POWER - 1 downto 1) of signed(s_axis_tdata'RANGE); -- N-1 registers per channel needed in the shift register
+	signal data_buffer_L : DATA_BUFFER_t;
+	signal data_buffer_R : DATA_BUFFER_t;
 	
 	signal s_axis_tready_sig : std_logic;
 	signal m_axis_tvalid_sig : std_logic;
-	signal counter : unsigned(FILTER_ORDER_POWER - 1 downto 0);
-	
-	procedure AVG_COMPUTATION (
-		signal data : in  FILTER_DATA_BUFFER_t;
-		signal avg  : out std_logic_vector(s_axis_tdata'RANGE)
-	) is
-		variable sum : signed(s_axis_tdata'HIGH + FILTER_ORDER_POWER downto 0);
-	begin
-		sum := (Others => '0');
-		for i in counter'RANGE loop
-			sum := sum + resize(signed(data(i)), sum'LENGTH);
-		end loop;
-		avg <= std_logic_vector(sum(sum'HIGH downto sum'HIGH - (s_axis_tdata'LENGTH - 1)));
-	end procedure;
+	signal s_axis_tdata_sig  : signed(s_axis_tdata'RANGE);
 	
 begin
 	process(aclk, aresetn)
-		variable tlast_select : integer range 0 to 1;
+		variable filter_diff_v : signed(s_axis_tdata'LENGTH downto 0); -- 1 more bit
+		variable filter_sum_v  : SUM_BUFFER_t;
 	begin
 		if aresetn = '0' then
 			
-			filter_data <= (Others => (Others => (Others => '0')));
+			data_buffer_L <= (Others => (Others => '0'));
+			data_buffer_R <= (Others => (Others => '0'));
+			filter_sum_L  <= (Others => '0');
+			filter_sum_R  <= (Others => '0');
+			
 			s_axis_tready_sig <= '0';
 			m_axis_tvalid_sig <= '0';
+			m_axis_tdata <= (Others => '0');
+			m_axis_tlast <= '0';
 			
 		elsif rising_edge(aclk) then
 			
 			SLAVE_HANDSHAKE : if s_axis_tready_sig = '1' and s_axis_tvalid  = '1' then
 				
-				if s_axis_tlast = '1' then
-					tlast_select := 1;
-				else
-					tlast_select := 0;
+				if s_axis_tlast = '1' then -- R
+				
+					filter_diff_v := (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
+									 (data_buffer_R(1)(s_axis_tdata'HIGH) & data_buffer_R(1));
+					filter_sum_v  := filter_sum_R + resize(filter_diff_v, filter_sum_v'LENGTH) ;
+					filter_sum_R <= filter_sum_v;
+					
+					data_buffer_R(2**FILTER_ORDER_POWER - 2 downto 1) <= data_buffer_R(2**FILTER_ORDER_POWER - 1 downto 2);
+					data_buffer_R(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
+					
+				else -- L
+					
+					filter_diff_v := (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
+									 (data_buffer_L(1)(s_axis_tdata'HIGH) & data_buffer_L(1));
+					filter_sum_v  := filter_sum_L + resize(filter_diff_v, filter_sum_v'LENGTH) ;
+					filter_sum_L <= filter_sum_v;
+					
+					data_buffer_L(2**FILTER_ORDER_POWER - 2 downto 1) <= data_buffer_L(2**FILTER_ORDER_POWER - 1 downto 2);
+					data_buffer_L(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
+					
 				end if;
 				
-				filter_data(tlast_select)(to_integer(counter)) <= s_axis_tdata;
-				
-				AVG_COMPUTATION(
-					data => filter_data(tlast_select),
-					avg => m_axis_tdata
-				);
-				
-				counter <= counter + tlast_select;
-				
+				m_axis_tdata <= std_logic_vector(filter_sum_v(filter_sum_v'HIGH downto filter_sum_v'HIGH - (m_axis_tdata'LENGTH - 1)));
 				m_axis_tlast <= s_axis_tlast;
 				m_axis_tvalid_sig <= '1';
 				
@@ -89,14 +95,15 @@ begin
 			end if MASTER_HANDSHAKE;
 			
 			
-			INITIAL_VALID : if s_axis_tready_sig /= '1' and m_axis_tvalid_sig /= '1' then
+			INITIAL_READY : if s_axis_tready_sig /= '1' and m_axis_tvalid_sig /= '1' then
 				s_axis_tready_sig <= '1';
-			end if INITIAL_VALID;
+			end if INITIAL_READY;
 			
 		end if;
 	end process;
 	
 	m_axis_tvalid <= m_axis_tvalid_sig;
 	s_axis_tready <= s_axis_tready_sig;
+	s_axis_tdata_sig <= signed(s_axis_tdata);
 	
 end Behavioral;
