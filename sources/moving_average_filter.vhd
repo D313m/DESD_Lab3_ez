@@ -25,6 +25,7 @@ entity moving_average_filter is
 end moving_average_filter;
 
 architecture Behavioral of moving_average_filter is
+	
 	subtype SUM_BUFFER_t is signed(s_axis_tdata'HIGH + FILTER_ORDER_POWER downto 0); -- Sum of current data_buffer contents.
 	signal filter_sum_L : SUM_BUFFER_t;                                              -- It is updated by calculating the difference of the oldest datum in
 	signal filter_sum_R : SUM_BUFFER_t;                                              -- the buffer with the new one instead of computing the whole sum every time.
