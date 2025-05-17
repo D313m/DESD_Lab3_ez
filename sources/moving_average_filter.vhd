@@ -13,27 +13,27 @@ entity moving_average_filter is
 		aresetn       : in  std_logic;
 
 		s_axis_tvalid : in  std_logic;
-		s_axis_tdata  : in  std_logic_vector(TDATA_WIDTH-1 downto 0);
+		s_axis_tdata  : in  std_logic_vector(TDATA_WIDTH - 1 downto 0);
 		s_axis_tlast  : in  std_logic;
 		s_axis_tready : out std_logic;
 
 		m_axis_tvalid : out std_logic;
-		m_axis_tdata  : out std_logic_vector(TDATA_WIDTH-1 downto 0);
+		m_axis_tdata  : out std_logic_vector(TDATA_WIDTH - 1 downto 0);
 		m_axis_tlast  : out std_logic;
 		m_axis_tready : in  std_logic
 	);
 end moving_average_filter;
 
 architecture Behavioral of moving_average_filter is
-	subtype SUM_BUFFER_t is signed(s_axis_tdata'HIGH + FILTER_ORDER_POWER downto 0);
-	signal filter_sum_L : SUM_BUFFER_t;
-	signal filter_sum_R : SUM_BUFFER_t;
+	subtype SUM_BUFFER_t is signed(s_axis_tdata'HIGH + FILTER_ORDER_POWER downto 0); -- Sum of current data_buffer contents.
+	signal filter_sum_L : SUM_BUFFER_t;                                              -- It is updated by calculating the difference of the oldest datum in
+	signal filter_sum_R : SUM_BUFFER_t;                                              -- the buffer with the new one instead of computing the whole sum every time.
 	
-	type DATA_BUFFER_t is array (2**FILTER_ORDER_POWER - 1 downto 0) of signed(s_axis_tdata'RANGE); -- N-1 registers per channel needed in the shift register
+	type DATA_BUFFER_t is array (2**FILTER_ORDER_POWER - 1 downto 0) of signed(s_axis_tdata'RANGE);
 	signal data_buffer_L : DATA_BUFFER_t;
 	signal data_buffer_R : DATA_BUFFER_t;
 	
-	signal PL1_tvalid : std_logic;
+	signal PL1_tvalid : std_logic; -- Indicates whether the datum of the corresponding pipeline stage is valid.
 	signal PL2_tvalid : std_logic;
 	signal PL3_tvalid : std_logic;
 	
@@ -42,7 +42,7 @@ architecture Behavioral of moving_average_filter is
 	signal s_axis_tlast_sig2 : std_logic;
 	signal s_axis_tdata_sig  : signed(s_axis_tdata'RANGE);
 	
-	signal filter_diff : signed(s_axis_tdata'LENGTH downto 0); -- 1 more bit
+	signal filter_diff : signed(s_axis_tdata'LENGTH downto 0); -- 1 more bit needed to store the result.
 	
 begin
 	process(aclk, aresetn)
@@ -134,8 +134,9 @@ begin
 				
 			end if;
 			
-			if s_axis_tready_sig = '1' and s_axis_tvalid  = '1' then
-			
+			if s_axis_tready_sig = '1' and s_axis_tvalid  = '1' then -- This pipeline stage (the first) was introduced just to reduce the 
+			                                                         -- criticality of the master (prev. module) -> slave (this module)
+			                                                         -- tdata connection by removing the diff computation from it.
 				s_axis_tdata_sig <= signed(s_axis_tdata);
 				s_axis_tlast_sig <= s_axis_tlast;
 				PL1_tvalid <= '1';
