@@ -33,13 +33,17 @@ architecture Behavioral of moving_average_filter is
 	signal data_buffer_L : DATA_BUFFER_t;
 	signal data_buffer_R : DATA_BUFFER_t;
 	
-	signal s_axis_tready_sig : std_logic;
-	signal m_axis_tvalid_sig : std_logic;
+	--type STATUS_t is (READY, VALID, INIT);
+	--signal status : STATUS_t;
+	
+	signal s_axis_tlast_sig  : std_logic;
+	signal s_axis_tlast_sig2 : std_logic;
 	signal s_axis_tdata_sig  : signed(s_axis_tdata'RANGE);
+	
+	signal filter_diff : signed(s_axis_tdata'LENGTH downto 0); -- 1 more bit
 	
 begin
 	process(aclk, aresetn)
-		variable filter_diff_v : signed(s_axis_tdata'LENGTH downto 0); -- 1 more bit
 		variable filter_sum_v  : SUM_BUFFER_t;
 	begin
 		if aresetn = '0' then
@@ -49,61 +53,85 @@ begin
 			filter_sum_L  <= (Others => '0');
 			filter_sum_R  <= (Others => '0');
 			
-			s_axis_tready_sig <= '0';
-			m_axis_tvalid_sig <= '0';
+			--status <= INIT;
+			
 			m_axis_tdata <= (Others => '0');
 			m_axis_tlast <= '0';
 			
+			s_axis_tlast_sig  <= '0';
+			s_axis_tlast_sig2 <= '0';
+			s_axis_tdata_sig  <= (Others => '0');
+			
 		elsif rising_edge(aclk) then
 			
-			SLAVE_HANDSHAKE : if s_axis_tready_sig = '1' and s_axis_tvalid  = '1' then
+			PIPELINE : if m_axis_tready = '1' and s_axis_tvalid = '1' then
+			
+			--if status = READY and s_axis_tvalid  = '1' then
+			
+				s_axis_tdata_sig <= signed(s_axis_tdata);
+				s_axis_tlast_sig <= s_axis_tlast;
+				--status <= ...
 				
-				if s_axis_tlast = '1' then -- R
+			--end if;
+			
+			--if then
 				
-					filter_diff_v := (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
+				if s_axis_tlast_sig = '1' then -- R
+				
+					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
 									 (data_buffer_R(1)(s_axis_tdata'HIGH) & data_buffer_R(1));
-					filter_sum_v  := filter_sum_R + resize(filter_diff_v, filter_sum_v'LENGTH) ;
-					filter_sum_R <= filter_sum_v;
 					
 					data_buffer_R(2**FILTER_ORDER_POWER - 2 downto 1) <= data_buffer_R(2**FILTER_ORDER_POWER - 1 downto 2);
 					data_buffer_R(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
 					
 				else -- L
 					
-					filter_diff_v := (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
+					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
 									 (data_buffer_L(1)(s_axis_tdata'HIGH) & data_buffer_L(1));
-					filter_sum_v  := filter_sum_L + resize(filter_diff_v, filter_sum_v'LENGTH) ;
-					filter_sum_L <= filter_sum_v;
 					
 					data_buffer_L(2**FILTER_ORDER_POWER - 2 downto 1) <= data_buffer_L(2**FILTER_ORDER_POWER - 1 downto 2);
 					data_buffer_L(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
 					
 				end if;
 				
+				s_axis_tlast_sig2 <= s_axis_tlast_sig;
+				--status <= BUSY;
+				
+			--end if;
+			
+			--if status = BUSY then
+			
+				if s_axis_tlast_sig2 = '1' then -- R
+					
+					filter_sum_v  := filter_sum_R + resize(filter_diff, filter_sum_v'LENGTH) ;
+					filter_sum_R <= filter_sum_v;
+					
+				else -- L
+					
+					filter_sum_v  := filter_sum_L + resize(filter_diff, filter_sum_v'LENGTH) ;
+					filter_sum_L <= filter_sum_v;
+					
+				end if;
+				
 				m_axis_tdata <= std_logic_vector(filter_sum_v(filter_sum_v'HIGH downto filter_sum_v'HIGH - (m_axis_tdata'LENGTH - 1)));
-				m_axis_tlast <= s_axis_tlast;
-				m_axis_tvalid_sig <= '1';
+				m_axis_tlast <= s_axis_tlast_sig2;
+				--status <= VALID;
 				
-				s_axis_tready_sig <= '0';
-				
-			end if SLAVE_HANDSHAKE;
+			--end if;
 			
+			--if (status = VALID and m_axis_tready = '1') or 
+			--                      (status = INIT) then
+			--	status <= READY;
+			--end if;
 			
-			MASTER_HANDSHAKE : if m_axis_tready = '1' and m_axis_tvalid_sig = '1' then
-				s_axis_tready_sig <= '1';
-				m_axis_tvalid_sig <= '0';
-			end if MASTER_HANDSHAKE;
-			
-			
-			INITIAL_READY : if s_axis_tready_sig /= '1' and m_axis_tvalid_sig /= '1' then
-				s_axis_tready_sig <= '1';
-			end if INITIAL_READY;
+			end if PIPELINE;
 			
 		end if;
 	end process;
 	
-	m_axis_tvalid <= m_axis_tvalid_sig;
-	s_axis_tready <= s_axis_tready_sig;
-	s_axis_tdata_sig <= signed(s_axis_tdata);
+	--m_axis_tvalid <= '1' when status = VALID else '0';
+	--s_axis_tready <= '1' when status = READY else '0';
+	s_axis_tready <= m_axis_tready;
+	m_axis_tvalid <= '0' when aresetn = '0' else '1';
 	
 end Behavioral;
