@@ -5,7 +5,7 @@ use ieee.numeric_std.all;
 entity moving_average_filter is
 	generic (
 		-- Filter order expressed as 2^(FILTER_ORDER_POWER)
-		FILTER_ORDER_POWER : integer := 5;
+		FILTER_ORDER_POWER : integer  := 5;
 		TDATA_WIDTH        : positive := 24
 	);
 	Port (
@@ -29,13 +29,15 @@ architecture Behavioral of moving_average_filter is
 	signal filter_sum_L : SUM_BUFFER_t;
 	signal filter_sum_R : SUM_BUFFER_t;
 	
-	type DATA_BUFFER_t is array (2**FILTER_ORDER_POWER - 1 downto 1) of signed(s_axis_tdata'RANGE); -- N-1 registers per channel needed in the shift register
+	type DATA_BUFFER_t is array (2**FILTER_ORDER_POWER - 1 downto 0) of signed(s_axis_tdata'RANGE); -- N-1 registers per channel needed in the shift register
 	signal data_buffer_L : DATA_BUFFER_t;
 	signal data_buffer_R : DATA_BUFFER_t;
 	
-	--type STATUS_t is (READY, VALID, INIT);
-	--signal status : STATUS_t;
+	signal PL1_tvalid : std_logic;
+	signal PL2_tvalid : std_logic;
+	signal PL3_tvalid : std_logic;
 	
+	signal s_axis_tready_sig : std_logic;
 	signal s_axis_tlast_sig  : std_logic;
 	signal s_axis_tlast_sig2 : std_logic;
 	signal s_axis_tdata_sig  : signed(s_axis_tdata'RANGE);
@@ -44,7 +46,13 @@ architecture Behavioral of moving_average_filter is
 	
 begin
 	process(aclk, aresetn)
+	
 		variable filter_sum_v  : SUM_BUFFER_t;
+		
+		variable PL1_ready : boolean;
+		variable PL2_ready : boolean;
+		variable PL3_ready : boolean;
+		
 	begin
 		if aresetn = '0' then
 			
@@ -53,53 +61,34 @@ begin
 			filter_sum_L  <= (Others => '0');
 			filter_sum_R  <= (Others => '0');
 			
-			--status <= INIT;
-			
 			m_axis_tdata <= (Others => '0');
 			m_axis_tlast <= '0';
 			
+			s_axis_tready_sig <= '0';
 			s_axis_tlast_sig  <= '0';
 			s_axis_tlast_sig2 <= '0';
 			s_axis_tdata_sig  <= (Others => '0');
 			
+			PL1_tvalid <= '0';
+			PL2_tvalid <= '0';
+			PL3_tvalid <= '0';
+			
 		elsif rising_edge(aclk) then
 			
-			PIPELINE : if m_axis_tready = '1' and s_axis_tvalid = '1' then
+			PL3_ready := PL3_tvalid /= '1' or m_axis_tready = '1';
+			PL2_ready := PL2_tvalid /= '1' or PL3_ready;
+			PL1_ready := PL1_tvalid /= '1' or PL2_ready;
 			
-			--if status = READY and s_axis_tvalid  = '1' then
+			if PL3_ready then
+				
+				PL3_tvalid <= '0';
+				
+			end if;
 			
-				s_axis_tdata_sig <= signed(s_axis_tdata);
-				s_axis_tlast_sig <= s_axis_tlast;
-				--status <= ...
+			if PL3_ready and PL2_tvalid = '1' then
 				
-			--end if;
-			
-			--if then
-				
-				if s_axis_tlast_sig = '1' then -- R
-				
-					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
-									 (data_buffer_R(1)(s_axis_tdata'HIGH) & data_buffer_R(1));
-					
-					data_buffer_R(2**FILTER_ORDER_POWER - 2 downto 1) <= data_buffer_R(2**FILTER_ORDER_POWER - 1 downto 2);
-					data_buffer_R(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
-					
-				else -- L
-					
-					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
-									 (data_buffer_L(1)(s_axis_tdata'HIGH) & data_buffer_L(1));
-					
-					data_buffer_L(2**FILTER_ORDER_POWER - 2 downto 1) <= data_buffer_L(2**FILTER_ORDER_POWER - 1 downto 2);
-					data_buffer_L(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
-					
-				end if;
-				
-				s_axis_tlast_sig2 <= s_axis_tlast_sig;
-				--status <= BUSY;
-				
-			--end if;
-			
-			--if status = BUSY then
+				PL2_tvalid <= '0';
+				PL3_tvalid <= '1';
 			
 				if s_axis_tlast_sig2 = '1' then -- R
 					
@@ -115,23 +104,59 @@ begin
 				
 				m_axis_tdata <= std_logic_vector(filter_sum_v(filter_sum_v'HIGH downto filter_sum_v'HIGH - (m_axis_tdata'LENGTH - 1)));
 				m_axis_tlast <= s_axis_tlast_sig2;
-				--status <= VALID;
+
+			end if;
+			
+			if PL2_ready and PL1_tvalid = '1' then
+			
+				PL1_tvalid <= '0';
+				PL2_tvalid <= '1';
 				
-			--end if;
+				if s_axis_tlast_sig = '1' then -- R
+				
+					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
+									 (data_buffer_R(0)(s_axis_tdata'HIGH) & data_buffer_R(0));
+					
+					data_buffer_R(2**FILTER_ORDER_POWER - 2 downto 0) <= data_buffer_R(2**FILTER_ORDER_POWER - 1 downto 1);
+					data_buffer_R(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
+					
+				else -- L
+					
+					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
+									 (data_buffer_L(0)(s_axis_tdata'HIGH) & data_buffer_L(0));
+					
+					data_buffer_L(2**FILTER_ORDER_POWER - 2 downto 0) <= data_buffer_L(2**FILTER_ORDER_POWER - 1 downto 1);
+					data_buffer_L(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
+					
+				end if;
+				
+				s_axis_tlast_sig2 <= s_axis_tlast_sig;
+				
+			end if;
 			
-			--if (status = VALID and m_axis_tready = '1') or 
-			--                      (status = INIT) then
-			--	status <= READY;
-			--end if;
+			if s_axis_tready_sig = '1' and s_axis_tvalid  = '1' then
 			
-			end if PIPELINE;
+				s_axis_tdata_sig <= signed(s_axis_tdata);
+				s_axis_tlast_sig <= s_axis_tlast;
+				PL1_tvalid <= '1';
+				PL1_ready := PL2_ready;
+				
+			end if;
+			
+			if PL1_ready then
+			
+				s_axis_tready_sig <= '1';
+				
+			else
+			
+				s_axis_tready_sig <= '0';
+				
+			end if;
 			
 		end if;
 	end process;
 	
-	--m_axis_tvalid <= '1' when status = VALID else '0';
-	--s_axis_tready <= '1' when status = READY else '0';
-	s_axis_tready <= m_axis_tready;
-	m_axis_tvalid <= '0' when aresetn = '0' else '1';
+	s_axis_tready <= s_axis_tready_sig;
+	m_axis_tvalid <= PL3_tvalid;
 	
 end Behavioral;
