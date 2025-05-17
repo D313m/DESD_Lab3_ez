@@ -85,7 +85,7 @@ begin
 				
 			end if;
 			
-			if PL3_ready and PL2_tvalid = '1' then
+			if PL3_ready and PL2_tvalid = '1' then -- Master handshake
 				
 				PL2_tvalid <= '0';
 				PL3_tvalid <= '1';
@@ -134,7 +134,8 @@ begin
 				
 			end if;
 			
-			if s_axis_tready_sig = '1' and s_axis_tvalid  = '1' then -- This pipeline stage (the first) was introduced just to reduce the 
+			if s_axis_tready_sig = '1' and s_axis_tvalid  = '1' then -- Slave handshake
+			                                                         -- This pipeline stage (the first) was introduced just to reduce the 
 			                                                         -- criticality of the master (prev. module) -> slave (this module)
 			                                                         -- tdata connection by removing the diff computation from it.
 				s_axis_tdata_sig <= signed(s_axis_tdata);
