@@ -65,8 +65,8 @@ begin
 	
 	m_axis_tvalid 		<= m_axis_tvalid_sig;
 	
-	m_axis_tvalid_sig 	<= s_axis_tvalid 	when status = ALL_PASS_state else '1';
-	m_axis_tdata 		<= s_axis_tdata 	when status = ALL_PASS_state else (Others => '0');
+	m_axis_tvalid_sig 	<= s_axis_tvalid;
+	m_axis_tdata 		<= s_axis_tdata when status = ALL_PASS_state else (Others => '0');
 	s_axis_tready 		<= m_axis_tready;
 	m_axis_tlast 		<= s_axis_tlast;
 
