@@ -1,121 +1,121 @@
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
 entity volume_controller is
   generic (
-    TDATA_WIDTH     : positive := 24;              -- Audio data width (24 bits)
-    VOLUME_WIDTH    : positive := 10;              -- Joystick Y-axis input width (0-1023)
-    VOLUME_STEP_2   : positive := 6;               -- Volume change every 2^6 = 64 joystick steps
-    HIGHER_BOUND    : integer := 2**23 - 1;        -- Max 24-bit signed value (+8388607)
-    LOWER_BOUND     : integer := -2**23            -- Min 24-bit signed value  (-8388608)
+    TDATA_WIDTH   : integer := 24;
+    VOLUME_WIDTH  : integer := 10;
+    VOLUME_STEP_2 : integer := 6;
+    HIGHER_BOUND  : integer := 8388607;
+    LOWER_BOUND   : integer := -8388608
   );
   port (
-    -- Clock & Reset 
-    aclk            : in  std_logic;
-    aresetn         : in  std_logic;
+    aclk          : in  std_logic;
+    aresetn       : in  std_logic;
 
-    -- AXI4-Stream Slave (input)
-    s_axis_tvalid   : in  std_logic;
-    s_axis_tdata    : in  std_logic_vector(TDATA_WIDTH-1 downto 0);
-    s_axis_tlast    : in  std_logic;
-    s_axis_tready   : out std_logic;
+    s_axis_tvalid : in  std_logic;
+    s_axis_tdata  : in  std_logic_vector(TDATA_WIDTH-1 downto 0);
+    s_axis_tlast  : in  std_logic;
+    s_axis_tready : out std_logic;
 
-    -- AXI4-Stream Master (output)
-    m_axis_tvalid   : out std_logic;
-    m_axis_tdata    : out std_logic_vector(TDATA_WIDTH-1 downto 0);
-    m_axis_tlast    : out std_logic;
-    m_axis_tready   : in  std_logic;
+    m_axis_tvalid : out std_logic;
+    m_axis_tdata  : out std_logic_vector(TDATA_WIDTH-1 downto 0);
+    m_axis_tlast  : out std_logic;
+    m_axis_tready : in  std_logic;
 
-    -- Joystick Y-axis volume input
-    volume          : in  std_logic_vector(VOLUME_WIDTH-1 downto 0)
+    volume        : in  std_logic_vector(VOLUME_WIDTH-1 downto 0)
   );
 end volume_controller;
 
 architecture Behavioral of volume_controller is
+  -- Constants
+  constant MIDPOINT  : integer := 2 ** (VOLUME_WIDTH - 1);
+  constant STEP_SIZE : integer := 2 ** VOLUME_STEP_2;
+  constant EXP_MIN   : integer := -8;
+  constant EXP_MAX   : integer := 7;
 
-  -- Output buffer (1 sample)
-  signal out_data_reg  : std_logic_vector(TDATA_WIDTH-1 downto 0) := (others => '0');
-  signal out_tlast_reg : std_logic := '0';
-  signal out_valid_reg : std_logic := '0';
+  -- Stage 1 registers
+  signal stage1_valid : std_logic := '0';
+  signal stage1_data  : signed(TDATA_WIDTH-1 downto 0) := (others => '0');
+  signal stage1_exp   : integer range -8 to 7 := 0;
+  signal stage1_last  : std_logic := '0';
 
-  -- Internal ready signal to avoid reading from 'out' port
-  signal axis_ready    : std_logic;
+  -- Stage 2 registers (output)
+  signal stage2_valid : std_logic := '0';
+  signal stage2_data  : std_logic_vector(TDATA_WIDTH-1 downto 0) := (others => '0');
+  signal stage2_last  : std_logic := '0';
 
 begin
 
-  -- Output assignments
-  m_axis_tdata  <= out_data_reg;
-  m_axis_tlast  <= out_tlast_reg;
-  m_axis_tvalid <= out_valid_reg;
+  -- Handshake
+  s_axis_tready <= '1' when (stage1_valid = '0') or ((stage1_valid = '1') and (stage2_valid = '0') and (m_axis_tready = '1')) else '0';
 
-  -- Ready to receive new input if output is free or being consumed
-  axis_ready    <= '1' when (out_valid_reg = '0') or 
-                            ((out_valid_reg = '1') and (m_axis_tready = '1'))
-                   else '0';
-  s_axis_tready <= axis_ready;
+  m_axis_tvalid <= stage2_valid;
+  m_axis_tdata  <= stage2_data;
+  m_axis_tlast  <= stage2_last;
 
   process(aclk)
-    variable vol_int      : integer;
-    variable offset       : integer;
-    variable exp_val      : integer;                                -- Gain exponent (-8 to +7)
-    variable sample_in    : signed(TDATA_WIDTH-1 downto 0);
-    variable extended     : signed(TDATA_WIDTH+6-1 downto 0);        -- For safe shifting
-    variable shifted_val  : signed(TDATA_WIDTH+6-1 downto 0);
-    variable result       : signed(TDATA_WIDTH-1 downto 0);
-    variable temp_int     : integer;
+    variable vol_val    : integer;
+    variable offset     : integer;
+    variable exp_val    : integer;
+    variable extended   : signed(31 downto 0);
+    variable shifted    : signed(31 downto 0);
+    variable temp_int   : integer;
+    variable clipped    : signed(TDATA_WIDTH-1 downto 0);
   begin
     if rising_edge(aclk) then
       if aresetn = '0' then
-        -- Reset output state
-        out_valid_reg <= '0';
-        out_data_reg  <= (others => '0');
-        out_tlast_reg <= '0';
-
+        stage1_valid <= '0';
+        stage2_valid <= '0';
+        stage2_data  <= (others => '0');
+        stage2_last  <= '0';
       else
-        -- Free output buffer if downstream is ready
-        if (out_valid_reg = '1') and (m_axis_tready = '1') then
-          out_valid_reg <= '0';
-        end if;
+        -- Stage 2 output register update
+        if stage1_valid = '1' and ((stage2_valid = '0') or (m_axis_tready = '1')) then
+          extended := resize(stage1_data, 32);
 
-        -- Accept new input if valid and ready
-        if (s_axis_tvalid = '1') and (axis_ready = '1') then
-          -- Convert volume input to integer and center it
-          vol_int := to_integer(unsigned(volume));              -- 0-1023
-          offset  := vol_int - (2 ** (VOLUME_WIDTH - 1));       --  512 center
-
-          -- Used division instead of sra for compatibility (Vivado handles as shift since denominator is constant)
-          exp_val := offset / (2 ** VOLUME_STEP_2);             -- offset / 64
-
-          -- Clamp exponent
-          if exp_val >  7 then exp_val :=  7; end if;
-          if exp_val < -8 then exp_val := -8; end if;
-
-          -- In order to avoid overflow, audio sample should be extended
-          sample_in := signed(s_axis_tdata);
-          extended  := resize(sample_in, extended'length);
-
-          -- Apply gain
-          if exp_val >= 0 then
-            shifted_val := shift_left(extended, exp_val);    -- Amplify
+          -- Shift
+          if stage1_exp >= 0 then
+            shifted := extended sll stage1_exp;
           else
-            shifted_val := shift_right(extended, -exp_val);  -- Attenuate
+            shifted := shifted sra (-stage1_exp);
           end if;
 
-          -- Clip to 24-bit range
-          temp_int := to_integer(shifted_val);
+          -- Clipping
+          temp_int := to_integer(shifted);
           if temp_int > HIGHER_BOUND then
             temp_int := HIGHER_BOUND;
           elsif temp_int < LOWER_BOUND then
             temp_int := LOWER_BOUND;
           end if;
+          clipped := to_signed(temp_int, TDATA_WIDTH);
 
-          result := to_signed(temp_int, TDATA_WIDTH);
+          stage2_data  <= std_logic_vector(clipped);
+          stage2_last  <= stage1_last;
+          stage2_valid <= '1';
+          stage1_valid <= '0';
+        elsif m_axis_tready = '1' then
+          stage2_valid <= '0'; -- output consumed
+        end if;
 
-          -- Write to output buffer
-          out_data_reg  <= std_logic_vector(result);
-          out_tlast_reg <= s_axis_tlast;
-          out_valid_reg <= '1';
+        -- Stage 1 register update
+        if s_axis_tvalid = '1' and s_axis_tready = '1' then
+          stage1_data <= signed(s_axis_tdata);
+          stage1_last <= s_axis_tlast;
+          vol_val := to_integer(unsigned(volume));
+          offset  := vol_val - MIDPOINT;
+          exp_val := offset / STEP_SIZE;
+
+          if exp_val > EXP_MAX then
+            stage1_exp <= EXP_MAX;
+          elsif exp_val < EXP_MIN then
+            stage1_exp <= EXP_MIN;
+          else
+            stage1_exp <= exp_val;
+          end if;
+
+          stage1_valid <= '1';
         end if;
       end if;
     end if;
