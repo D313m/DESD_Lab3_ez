@@ -116,7 +116,7 @@ begin
 				if s_axis_tlast_sig = '1' then -- R
 				
 					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
-									 (data_buffer_R(0)(s_axis_tdata'HIGH) & data_buffer_R(0));
+					               (data_buffer_R(0)(s_axis_tdata'HIGH) & data_buffer_R(0));
 					
 					data_buffer_R(2**FILTER_ORDER_POWER - 2 downto 0) <= data_buffer_R(2**FILTER_ORDER_POWER - 1 downto 1);
 					data_buffer_R(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
@@ -124,7 +124,7 @@ begin
 				else -- L
 					
 					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
-									 (data_buffer_L(0)(s_axis_tdata'HIGH) & data_buffer_L(0));
+					               (data_buffer_L(0)(s_axis_tdata'HIGH) & data_buffer_L(0));
 					
 					data_buffer_L(2**FILTER_ORDER_POWER - 2 downto 0) <= data_buffer_L(2**FILTER_ORDER_POWER - 1 downto 1);
 					data_buffer_L(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
