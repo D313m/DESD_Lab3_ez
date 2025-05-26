@@ -50,7 +50,7 @@ begin
 					end if;
 					
 				when MUTE_state =>
-					if mute = '0' and m_axis_tready = '1' then
+					if mute = '0' and (m_axis_tready = '1' or m_axis_tvalid_sig = '0') then
 							status <= ALL_PASS_state;
 					else
 						status <= MUTE_state;
