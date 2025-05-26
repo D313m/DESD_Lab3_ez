@@ -69,23 +69,20 @@ architecture Behavioral of moving_average_filter_en is
 		);
 	end component all_pass_filter;
 	
-	type OUTPUT_STATUS_t is (ALLPASS, MOV_AVG);
-	signal output_status : OUTPUT_STATUS_t;
-	
 	signal enable_filter_sig : std_logic;
 	
 	signal s_axis_tready_tvalid : std_logic;
 	signal m_axis_tready_tvalid : std_logic;
 	
-	signal ma_s_axis_tready std_logic;
-	signal ma_m_axis_tvalid std_logic;
-	signal ma_m_axis_tdata  std_logic_vector(TDATA_WIDTH - 1 downto 0);
-	signal ma_m_axis_tlast  std_logic;
+	signal ma_s_axis_tready : std_logic;
+	signal ma_m_axis_tvalid : std_logic;
+	signal ma_m_axis_tdata  : std_logic_vector(TDATA_WIDTH - 1 downto 0);
+	signal ma_m_axis_tlast  : std_logic;
 	
-	signal ap_s_axis_tready std_logic;
-	signal ap_m_axis_tvalid std_logic;
-	signal ap_m_axis_tdata  std_logic_vector(TDATA_WIDTH - 1 downto 0);
-	signal ap_m_axis_tlast  std_logic;
+	signal ap_s_axis_tready : std_logic;
+	signal ap_m_axis_tvalid : std_logic;
+	signal ap_m_axis_tdata  : std_logic_vector(TDATA_WIDTH - 1 downto 0);
+	signal ap_m_axis_tlast  : std_logic;
 	
 begin
 	

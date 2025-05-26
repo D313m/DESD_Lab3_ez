@@ -70,9 +70,9 @@ begin
 			s_axis_tdata_sig  <= (Others => '0');
 			m_axis_tdata      <= (Others => '0');
 			
-			PL1 <= (Others => (Others => '0'));
-			PL2 <= (Others => (Others => '0'));
-			PL3 <= (Others => (Others => '0'));
+			PL1 <= (Others => '0');
+			PL2 <= (Others => '0');
+			PL3 <= (Others => '0');
 			
 		elsif rising_edge(aclk) then
 			
