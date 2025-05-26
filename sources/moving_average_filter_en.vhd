@@ -88,41 +88,41 @@ begin
 	
 	moving_average_filter_inst : moving_average_filter
 	generic map (
-		FILTER_ORDER_POWER <= FILTER_ORDER_POWER,
-		TDATA_WIDTH        <= TDATA_WIDTH
+		FILTER_ORDER_POWER => FILTER_ORDER_POWER,
+		TDATA_WIDTH        => TDATA_WIDTH
 	)
 	port map (
-		aclk          <= aclk,
-		aresetn       <= aresetn,
+		aclk          => aclk,
+		aresetn       => aresetn,
 		
-		s_axis_tvalid <= s_axis_tready_tvalid,
-		s_axis_tdata  <= s_axis_tdata,
-		s_axis_tlast  <= s_axis_tlast,
-		s_axis_tready <= ma_s_axis_tready,
+		s_axis_tvalid => s_axis_tready_tvalid,
+		s_axis_tdata  => s_axis_tdata,
+		s_axis_tlast  => s_axis_tlast,
+		s_axis_tready => ma_s_axis_tready,
 		
-		m_axis_tvalid <= ma_m_axis_tvalid,
-		m_axis_tdata  <= ma_m_axis_tdata,
-		m_axis_tlast  <= ma_m_axis_tlast,
-		m_axis_tready <= m_axis_tready
+		m_axis_tvalid => ma_m_axis_tvalid,
+		m_axis_tdata  => ma_m_axis_tdata,
+		m_axis_tlast  => ma_m_axis_tlast,
+		m_axis_tready => m_axis_tready
 	);
 	
 	all_pass_filter_inst : all_pass_filter
 	generic map (
-		TDATA_WIDTH   <= TDATA_WIDTH
+		TDATA_WIDTH   => TDATA_WIDTH
 	)
 	port map (
-		aclk          <= aclk,
-		aresetn       <= aresetn,
+		aclk          => aclk,
+		aresetn       => aresetn,
 		
-		s_axis_tvalid <= s_axis_tready_tvalid,
-		s_axis_tdata  <= s_axis_tdata,
-		s_axis_tlast  <= s_axis_tlast,
-		s_axis_tready <= ap_s_axis_tready,
+		s_axis_tvalid => s_axis_tready_tvalid,
+		s_axis_tdata  => s_axis_tdata,
+		s_axis_tlast  => s_axis_tlast,
+		s_axis_tready => ap_s_axis_tready,
 		
-		m_axis_tvalid <= ap_m_axis_tvalid,
-		m_axis_tdata  <= ap_m_axis_tdata,
-		m_axis_tlast  <= ap_m_axis_tlast,
-		m_axis_tready <= m_axis_tready
+		m_axis_tvalid => ap_m_axis_tvalid,
+		m_axis_tdata  => ap_m_axis_tdata,
+		m_axis_tlast  => ap_m_axis_tlast,
+		m_axis_tready => m_axis_tready
 	);
 	
 	process(aclk, aresetn)
