@@ -34,16 +34,20 @@ architecture Behavioral of moving_average_filter is
 	signal data_buffer_L : DATA_BUFFER_t;
 	signal data_buffer_R : DATA_BUFFER_t;
 	
-	signal PL1_tvalid : std_logic; -- Indicates whether the datum of the corresponding pipeline stage is valid.
-	signal PL2_tvalid : std_logic;
-	signal PL3_tvalid : std_logic;
-	
-	signal s_axis_tready_sig : std_logic;
-	signal s_axis_tlast_sig  : std_logic;
-	signal s_axis_tlast_sig2 : std_logic;
 	signal s_axis_tdata_sig  : signed(s_axis_tdata'RANGE);
 	
 	signal filter_diff : signed(s_axis_tdata'LENGTH downto 0); -- 1 more bit needed to store the result.
+	
+	type BUFFER_t is record
+		tvalid : std_logic; -- Indicates whether the datum of the corresponding pipeline stage is valid.
+		tlast  : std_logic;
+	end record BUFFER_t;
+	
+	signal PL1 : BUFFER_t;
+	signal PL2 : BUFFER_t;
+	signal PL3 : BUFFER_t;
+	
+	signal s_axis_tready_sig : std_logic;
 	
 begin
 	process(aclk, aresetn)
@@ -62,36 +66,32 @@ begin
 			filter_sum_L  <= (Others => '0');
 			filter_sum_R  <= (Others => '0');
 			
-			m_axis_tdata <= (Others => '0');
-			m_axis_tlast <= '0';
-			
 			s_axis_tready_sig <= '0';
-			s_axis_tlast_sig  <= '0';
-			s_axis_tlast_sig2 <= '0';
 			s_axis_tdata_sig  <= (Others => '0');
+			m_axis_tdata      <= (Others => '0');
 			
-			PL1_tvalid <= '0';
-			PL2_tvalid <= '0';
-			PL3_tvalid <= '0';
+			PL1 <= (Others => (Others => '0'));
+			PL2 <= (Others => (Others => '0'));
+			PL3 <= (Others => (Others => '0'));
 			
 		elsif rising_edge(aclk) then
 			
-			PL3_ready := PL3_tvalid /= '1' or m_axis_tready = '1';
-			PL2_ready := PL2_tvalid /= '1' or PL3_ready;
-			PL1_ready := PL1_tvalid /= '1' or PL2_ready;
+			PL3_ready := PL3.tvalid /= '1' or m_axis_tready = '1';
+			PL2_ready := PL2.tvalid /= '1' or PL3_ready;
+			PL1_ready := PL1.tvalid /= '1' or PL2_ready;
 			
-			if PL3_ready then
+			if PL3_ready then -- Master handshake or invalid
 				
-				PL3_tvalid <= '0';
+				PL3.tvalid <= '0';
 				
 			end if;
 			
-			if PL3_ready and PL2_tvalid = '1' then -- Master handshake
+			if PL3_ready and PL2.tvalid = '1' then
 				
-				PL2_tvalid <= '0';
-				PL3_tvalid <= '1';
-			
-				if s_axis_tlast_sig2 = '1' then -- R
+				PL2.tvalid <= '0';
+				PL3 <= PL2;
+				
+				if PL2.tlast = '1' then -- R
 					
 					filter_sum_v  := filter_sum_R + resize(filter_diff, filter_sum_v'LENGTH) ;
 					filter_sum_R <= filter_sum_v;
@@ -104,16 +104,15 @@ begin
 				end if;
 				
 				m_axis_tdata <= std_logic_vector(filter_sum_v(filter_sum_v'HIGH downto filter_sum_v'HIGH - (m_axis_tdata'LENGTH - 1)));
-				m_axis_tlast <= s_axis_tlast_sig2;
 
 			end if;
 			
-			if PL2_ready and PL1_tvalid = '1' then
+			if PL2_ready and PL1.tvalid = '1' then
 			
-				PL1_tvalid <= '0';
-				PL2_tvalid <= '1';
+				PL1.tvalid <= '0';
+				PL2 <= PL1;
 				
-				if s_axis_tlast_sig = '1' then -- R
+				if PL1.tlast = '1' then -- R
 				
 					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
 					               (data_buffer_R(0)(s_axis_tdata'HIGH) & data_buffer_R(0));
@@ -131,8 +130,6 @@ begin
 					
 				end if;
 				
-				s_axis_tlast_sig2 <= s_axis_tlast_sig;
-				
 			end if;
 			
 			if s_axis_tready_sig = '1' and s_axis_tvalid  = '1' then -- Slave handshake
@@ -140,8 +137,8 @@ begin
 			                                                         -- criticality of the master (prev. module) -> slave (this module)
 			                                                         -- tdata connection by removing the diff computation from it.
 				s_axis_tdata_sig <= signed(s_axis_tdata);
-				s_axis_tlast_sig <= s_axis_tlast;
-				PL1_tvalid <= '1';
+				PL1.tlast <= s_axis_tlast;
+				PL1.tvalid <= '1';
 				PL1_ready := PL2_ready;
 				
 			end if;
@@ -160,6 +157,7 @@ begin
 	end process;
 	
 	s_axis_tready <= s_axis_tready_sig;
-	m_axis_tvalid <= PL3_tvalid;
+	m_axis_tvalid <= PL3.tvalid;
+	m_axis_tlast  <= PL3.tlast;
 	
 end Behavioral;
