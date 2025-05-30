@@ -32,6 +32,9 @@ architecture Behavioral of moving_average_filter_en is
 	signal filter_sum_L : SUM_BUFFER_t;                                              -- It is updated by calculating the difference of the oldest datum in
 	signal filter_sum_R : SUM_BUFFER_t;                                              -- the buffer with the new one instead of computing the whole sum every time.
 	
+	signal counter_L : unsigned(FILTER_ORDER_POWER - 1 downto 0);
+	signal counter_R : unsigned(FILTER_ORDER_POWER - 1 downto 0);
+	
 	type DATA_BUFFER_t is array (2**FILTER_ORDER_POWER - 1 downto 0) of signed(s_axis_tdata'RANGE);
 	signal data_buffer_L : DATA_BUFFER_t;
 	signal data_buffer_R : DATA_BUFFER_t;
@@ -39,7 +42,6 @@ architecture Behavioral of moving_average_filter_en is
 	signal s_axis_tdata_sig  : signed(s_axis_tdata'RANGE);
 	
 	signal filter_diff : signed(s_axis_tdata'LENGTH downto 0); -- 1 more bit needed to store the result.
-	signal last_datum  : std_logic_vector(s_axis_tdata'RANGE);
 	
 	type BUFFER_t is record
 		tvalid : std_logic; -- Indicates whether the datum of the corresponding pipeline stage is valid.
@@ -58,6 +60,7 @@ begin
 	process(aclk, aresetn)
 	
 		variable filter_sum_v  : SUM_BUFFER_t;
+		variable next_count    : unsigned(FILTER_ORDER_POWER - 1 downto 0);
 		
 		variable PL1_ready : boolean;
 		variable PL2_ready : boolean;
@@ -75,11 +78,13 @@ begin
 			enable_filter_sig <= '0';
 			s_axis_tdata_sig  <= (Others => '0');
 			m_axis_tdata      <= (Others => '0');
-			last_datum        <= (Others => '0');
 			
 			PL1 <= (Others => '0');
 			PL2 <= (Others => '0');
 			PL3 <= (Others => '0');
+			
+			counter_L <= (Others => '0');
+			counter_R <= (Others => '0');
 			
 		elsif rising_edge(aclk) then
 			
@@ -111,9 +116,11 @@ begin
 				end if;
 				
 				if enable_filter_sig = '1' then
-					m_axis_tdata <= std_logic_vector(filter_sum_v(filter_sum_v'HIGH downto filter_sum_v'HIGH - (m_axis_tdata'LENGTH - 1)));
+					m_axis_tdata <= std_logic_vector(filter_sum_v(filter_sum_v'HIGH downto filter_sum_v'HIGH - (m_axis_tdata'LENGTH - 1))); -- Rounded down (even negatives)
+				elsif PL2.tlast = '1' then -- R
+					m_axis_tdata <= std_logic_vector(data_buffer_R(to_integer(counter_R)));
 				else
-					m_axis_tdata <= last_datum;
+					m_axis_tdata <= std_logic_vector(data_buffer_L(to_integer(counter_L)));
 				end if;
 
 			end if;
@@ -124,24 +131,26 @@ begin
 				PL2 <= PL1;
 				
 				if PL1.tlast = '1' then -- R
-				
+					
+					next_count := counter_R + 1;
+					
 					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
-					               (data_buffer_R(0)(s_axis_tdata'HIGH) & data_buffer_R(0));
+					               (data_buffer_R(to_integer(next_count))(s_axis_tdata'HIGH) & data_buffer_R(to_integer(next_count)));
 					
-					data_buffer_R(2**FILTER_ORDER_POWER - 2 downto 0) <= data_buffer_R(2**FILTER_ORDER_POWER - 1 downto 1);
-					data_buffer_R(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
+					data_buffer_R(to_integer(counter_R)) <= s_axis_tdata_sig;
 					
-					last_datum <= std_logic_vector(data_buffer_R(0));
+					counter_R <= next_count;
 					
 				else -- L
 					
+					next_count := counter_L + 1;
+					
 					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
-					               (data_buffer_L(0)(s_axis_tdata'HIGH) & data_buffer_L(0));
+					               (data_buffer_L(to_integer(next_count))(s_axis_tdata'HIGH) & data_buffer_L(to_integer(next_count)));
 					
-					data_buffer_L(2**FILTER_ORDER_POWER - 2 downto 0) <= data_buffer_L(2**FILTER_ORDER_POWER - 1 downto 1);
-					data_buffer_L(2**FILTER_ORDER_POWER - 1) <= s_axis_tdata_sig;
+					data_buffer_L(to_integer(counter_L)) <= s_axis_tdata_sig;
 					
-					last_datum <= std_logic_vector(data_buffer_L(0));
+					counter_L <= next_count;
 					
 				end if;
 				
@@ -154,7 +163,11 @@ begin
 				s_axis_tdata_sig <= signed(s_axis_tdata);
 				PL1.tlast <= s_axis_tlast;
 				PL1.tvalid <= '1';
-				PL1_ready := PL2_ready;
+				PL1_ready := (PL1.tvalid /= '1' and PL2.tvalid /= '1') or
+				             (PL1.tvalid /= '1' and PL3.tvalid  = '1' and m_axis_tready = '1') or
+				             (PL2.tvalid /= '1' and PL3.tvalid  = '1' and m_axis_tready = '1') or
+				             (PL1.tvalid /= '1' and PL3.tvalid /= '1') or
+				             (PL2.tvalid /= '1' and PL3.tvalid /= '1');
 				
 			end if;
 			
