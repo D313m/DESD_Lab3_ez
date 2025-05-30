@@ -164,11 +164,10 @@ begin
 				PL1.tlast <= s_axis_tlast;
 				PL1.tvalid <= '1';
 				PL1_ready := (PL1.tvalid /= '1' and PL2.tvalid /= '1') or
-				             (PL1.tvalid /= '1' and PL3.tvalid  = '1' and m_axis_tready = '1') or
-				             (PL2.tvalid /= '1' and PL3.tvalid  = '1' and m_axis_tready = '1') or
-				             (PL1.tvalid /= '1' and PL3.tvalid /= '1') or
-				             (PL2.tvalid /= '1' and PL3.tvalid /= '1');
-				
+				             (PL1.tvalid /= '1' and PL3_ready) or
+				             (PL2.tvalid /= '1' and PL3_ready);
+				-- After this slave handshake, the module will be ready next cycle if there were at least two empty (invalid) stages or
+				-- one empty stage and the master handshake happened (freeing up an extra stage).
 			end if;
 			
 			if PL1_ready then
