@@ -42,6 +42,8 @@ begin
 		if aresetn = '0' then
 			L_data <= (Others => (Others => '0'));
 			R_data <= (Others => (Others => '0'));
+			balance_sig <= std_logic_vector(to_signed(2**(BALANCE_WIDTH-1), balance_sig'length));
+			balance_sig_normalized <= 0;
 			
 		elsif rising_edge(aclk) then
 			balance_sig <= balance;
