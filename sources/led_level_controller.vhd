@@ -19,8 +19,8 @@ entity led_level_controller is
     );
     Port (
         
-        aclk			: in std_logic;
-        aresetn			: in std_logic;
+        aclk		: in std_logic;
+        aresetn		: in std_logic;
         
         led    : out std_logic_vector(NUM_LEDS-1 downto 0);
 
@@ -45,6 +45,8 @@ signal R_data : std_logic_vector(CHANNEL_LENGHT-1 downto 0);
 signal L_data_uns : unsigned(CHANNEL_LENGHT downto 0);
 signal R_data_uns : unsigned(CHANNEL_LENGHT downto 0);
 signal on_led_num : integer range 0 to NUM_LEDS-1;
+
+constant max_data_value : unsigned(CHANNEL_LENGHT downto 0) := (Others => '1');
 
 begin
 
@@ -99,7 +101,7 @@ begin
 							led(i) <= '0';
 						end if;
 					end loop;
-					if on_led_num = 15 then
+					if L_data_uns = max_data_value and R_data_uns = max_data_value then -- last LED on only if we are in saturation
 						led(15) <= '1';
 					else
 						led(15) <= '0';
