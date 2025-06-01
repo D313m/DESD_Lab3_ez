@@ -3,124 +3,178 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity digilent_jstk2 is
-    generic (
-        DELAY_US        : integer := 25;
-        CLKFREQ         : integer := 100_000_000;
-        SPI_SCLKFREQ    : integer := 66_666
-    );
-    Port ( 
-        aclk            : in  STD_LOGIC;
-        aresetn         : in  STD_LOGIC;
-
-        -- SPI Master OUT
-        m_axis_tvalid   : out STD_LOGIC;
-        m_axis_tdata    : out STD_LOGIC_VECTOR(7 downto 0);
-        m_axis_tready   : in  STD_LOGIC;
-
-        -- SPI Master IN
-        s_axis_tvalid   : in STD_LOGIC;
-        s_axis_tdata    : in STD_LOGIC_VECTOR(7 downto 0);
-
-        -- Output joystick values
-        jstk_x          : out std_logic_vector(9 downto 0);
-        jstk_y          : out std_logic_vector(9 downto 0);
-        btn_jstk        : out std_logic;
-        btn_trigger     : out std_logic;
-
-        -- Input LED color
-        led_r           : in std_logic_vector(7 downto 0);
-        led_g           : in std_logic_vector(7 downto 0);
-        led_b           : in std_logic_vector(7 downto 0)
-    );
+	generic (
+		DELAY_US      : integer := 5000;           -- Interpacket delay [us]
+		CLKFREQ       : integer := 100_000_000;  -- Frequency of the aclk signal [Hz]
+		SPI_SCLKFREQ  : integer := 50_000        -- Frequency of the SPI SCLK clock signal [Hz]
+	);
+	Port ( 
+		aclk          : in  std_logic;
+		aresetn       : in  std_logic;
+		
+		-- Data going to the SPI IP-Core
+		m_axis_tvalid : out std_logic;
+		m_axis_tdata  : out std_logic_vector(7 downto 0);
+		m_axis_tready : in  std_logic;
+		
+		-- Data coming from the SPI IP-Core
+		s_axis_tvalid : in  std_logic;
+		s_axis_tdata  : in  std_logic_vector(7 downto 0);
+		
+		-- Joystick and button values read from the module
+		jstk_x        : out std_logic_vector(9 downto 0);
+		jstk_y        : out std_logic_vector(9 downto 0);
+		btn_jstk      : out std_logic;
+		btn_trigger   : out std_logic;
+		
+		-- LED RGB values to send to the module
+		led_r         : in  std_logic_vector(7 downto 0);
+		led_g         : in  std_logic_vector(7 downto 0);
+		led_b         : in  std_logic_vector(7 downto 0)
+	);
 end digilent_jstk2;
 
 architecture Behavioral of digilent_jstk2 is
+	
+	constant CMDSETLEDRGB : std_logic_vector(7 downto 0) := x"84"; -- SetLEDRGB command, as per the JSTK2 datasheet.
+	constant DUMMYVAL     : std_logic_vector(7 downto 0) := x"FF"; -- Value to use for PARAM4. Not reserved for commands.
+	
+	type SEND_STATE_t is (IDLE, SEND);
+	signal tx_state : SEND_STATE_t;
+	
+	type RECEIVE_STATE_t is (INVALID, VALID);
+	signal rx_state : RECEIVE_STATE_t;
+	
+	constant STD_DATA_STRUCT_BYTES : integer := 5;
+	
+	type DATA_BUFFER_t is array (integer range <>) of std_logic_vector(m_axis_tdata'RANGE);
+	signal tx_buffer : DATA_BUFFER_t(0 to STD_DATA_STRUCT_BYTES - 3);
+	signal rx_buffer : DATA_BUFFER_t(0 to STD_DATA_STRUCT_BYTES - 2);
+	
+	signal tx_index  : integer range 0 to STD_DATA_STRUCT_BYTES - 1;
+	signal rx_index  : integer range 0 to STD_DATA_STRUCT_BYTES - 1;
 
-    -- FSM state encoding
-    constant STATE_IDLE : integer := 0;
-    constant STATE_LOAD : integer := 1;
-    constant STATE_SEND : integer := 2;
-    constant STATE_DONE : integer := 3;
-
-    signal state      : integer range 0 to 3 := STATE_IDLE;
-
-    signal tx_buffer  : std_logic_vector(31 downto 0); -- 4 bytes to send
-    signal tx_index   : integer range 0 to 3 := 0;
-
-    signal rx_buffer  : std_logic_vector(31 downto 0); -- 4 bytes received
-    signal rx_index   : integer range 0 to 3 := 0;
-
-    signal delay_cnt  : integer range 0 to CLKFREQ / 1_000_000 * DELAY_US := 0;
-
+	constant DELAY_CNT_MAX : integer := CLKFREQ/ 1_000_000 * DELAY_US;
+	signal delay_cnt : integer range 0 to DELAY_CNT_MAX - 1;
+	--- probe code
+	component ila_0 is port (
+	   clk: in std_logic;
+	   probe0: in std_logic_vector(9 downto 0);
+	   probe1: in std_logic_vector(9 downto 0);
+	   probe2: in std_logic_vector(1 downto 0);
+	   probe3: in std_logic_vector(7 downto 0)
+	);
+	end component;
+	signal btns: std_logic_vector(1 downto 0);
+	signal btn_jstk_int  : std_logic;
+	signal btn_trigger_int : std_logic;
+	signal rx_probe :  std_logic_vector(7 downto 0);
+		signal copy_jstk_x        :  std_logic_vector(9 downto 0);
+		signal copy_jstk_y        :  std_logic_vector(9 downto 0);
+	
 begin
+ ila_inst : ila_0
+    port map (
+        clk => aclk,
+        probe0 => copy_jstk_x,
+        probe1 => copy_jstk_y,
+        probe2 => btns,
+        probe3 => rx_probe
+ );
 
-    process(aclk)
-    begin
-        if rising_edge(aclk) then
-            if aresetn = '0' then
-                state <= STATE_IDLE;
-                m_axis_tvalid <= '0';
-                tx_index <= 0;
-                rx_index <= 0;
-                delay_cnt <= 0;
-            else
-                case state is
-
-                    when STATE_IDLE =>
-                        -- Prepare LED command packet
-                        tx_buffer(31 downto 24) <= x"84";    -- CMDSETLEDRGB
-                        tx_buffer(23 downto 16) <= led_r;
-                        tx_buffer(15 downto 8)  <= led_g;
-                        tx_buffer(7 downto 0)   <= led_b;
-                        tx_index <= 0;
-                        rx_index <= 0;
-                        state <= STATE_LOAD;
-
-                    when STATE_LOAD =>
-                        if m_axis_tready = '1' then
-                            m_axis_tvalid <= '1';
-                            m_axis_tdata <= tx_buffer(31 downto 24);
-                            state <= STATE_SEND;
-                        end if;
-
-                    when STATE_SEND =>
-                        if m_axis_tready = '1' then
-                            -- Receive data in parallel
-                            if s_axis_tvalid = '1' then
-                                rx_buffer(31 - rx_index*8 downto 24 - rx_index*8) <= s_axis_tdata;
-                                rx_index <= rx_index + 1;
-                            end if;
-
-                    -- tx was here                            
-
-                            if tx_index = 2 then
-                                m_axis_tvalid <= '0';
-                                state <= STATE_DONE;
-                                delay_cnt <= 0;
-                            else
-                                m_axis_tdata <= tx_buffer(31 - (tx_index+1)*8 downto 24 - (tx_index+1)*8);
-                            end if;
-                            tx_index <= tx_index + 1;
-                        end if;
-
-                    when STATE_DONE =>
-                        -- Extract joystick and button data from received bytes
-                        jstk_x <= rx_buffer(23 downto 16) & rx_buffer(9 downto 8);  -- X: Byte1 + 2 LSB
-                        jstk_y <= rx_buffer(15 downto 8) & rx_buffer(7 downto 6);   -- Y: Byte2 + 2 LSB
-                        btn_trigger <= rx_buffer(5);
-                        btn_jstk    <= rx_buffer(4);
-                        if delay_cnt < CLKFREQ / 1_000_000 * DELAY_US then
-                            delay_cnt <= delay_cnt + 1;
-                        else
-                            state <= STATE_IDLE;
-                        end if;
-
-                    when others =>
-                        state <= STATE_IDLE;
-
-                end case;
-            end if;
-        end if;
-    end process;
-
+	process(aclk)
+	begin
+		if aresetn = '0' then
+			
+			tx_state <= IDLE;
+			rx_state <= INVALID;
+			delay_cnt     <= 0;
+			
+			m_axis_tvalid <= '0';
+			m_axis_tdata  <= (Others => '0');
+			
+			btn_jstk      <= '0';
+			btn_trigger   <= '0';
+			jstk_x        <= (Others => '0');
+			jstk_y        <= (Others => '0');
+			
+		elsif rising_edge(aclk) then
+		
+			RX_MNGT : if rx_state = VALID and s_axis_tvalid = '1' then
+				
+				if rx_index = STD_DATA_STRUCT_BYTES - 1 then -- fsButtons byte. Outputs can be updated.
+				
+				    rx_probe <= s_axis_tdata;
+					btn_jstk_int  <= s_axis_tdata(0);
+					btn_trigger_int  <= s_axis_tdata(1);
+					btns <= btn_jstk_int & btn_trigger_int;
+					btn_jstk    <= s_axis_tdata(0);
+					btn_trigger <= s_axis_tdata(1);
+					
+					jstk_x <= rx_buffer(1)(1 downto 0) & rx_buffer(0); -- [High byte; Low Byte], Right justified.
+					jstk_y <= rx_buffer(3)(1 downto 0) & rx_buffer(2); -- [High byte; Low Byte], Right justified.
+					
+					copy_jstk_x <= rx_buffer(1)(1 downto 0) & rx_buffer(0);
+					copy_jstk_y <= rx_buffer(3)(1 downto 0) & rx_buffer(2);
+					rx_state <= INVALID;
+					                                                  
+				else -- X and Y position bytes
+					
+					rx_index <= rx_index + 1;
+					rx_buffer(rx_index) <= s_axis_tdata;
+					
+				end if;
+				
+			end if RX_MNGT;
+		
+			TX_MNGT : case tx_state is
+				
+				when IDLE => -- Wait for interpacket delay
+					
+					if delay_cnt = DELAY_CNT_MAX - 1 then
+						
+						delay_cnt <= 0;
+						
+						tx_buffer(0) <= led_r;
+						tx_buffer(1) <= led_g;
+						tx_buffer(2) <= led_b;
+						
+						m_axis_tdata <= CMDSETLEDRGB;
+						m_axis_tvalid <= '1';
+						
+						tx_index <= 0;
+						tx_state <= SEND;
+						
+						rx_index <= 0;
+						rx_state <= VALID;
+						
+					else
+						
+						delay_cnt <= delay_cnt + 1;
+						
+					end if;
+				
+				when SEND =>
+					
+					if m_axis_tready = '1' then
+						
+						case tx_index is
+							when STD_DATA_STRUCT_BYTES - 1 =>
+								m_axis_tvalid <= '0';
+								tx_state <= IDLE;
+							when STD_DATA_STRUCT_BYTES - 2 =>
+								tx_index <= tx_index + 1;
+								m_axis_tdata <= DUMMYVAL;
+							when Others =>
+								tx_index <= tx_index + 1;
+								m_axis_tdata <= tx_buffer(tx_index);
+						end case;
+						
+					end if;
+					
+			end case TX_MNGT;
+			
+		end if;
+	end process;
+	
 end Behavioral;
