@@ -40,9 +40,9 @@ architecture Behavioral of led_level_controller is
 begin
 	
 	process (aclk, aresetn)
-		variable L_data_uns : unsigned(CHANNEL_LENGHT - 1 downto 0);
-		variable R_data_uns : unsigned(CHANNEL_LENGHT - 1 downto 0);
-		variable sum        : unsigned(CHANNEL_LENGHT     downto 0);
+		variable L_data_uns : unsigned(CHANNEL_LENGHT downto 0);
+		variable R_data_uns : unsigned(CHANNEL_LENGHT downto 0);
+		variable sum        : unsigned(CHANNEL_LENGHT downto 0);
 	begin
 		if aresetn = '0' then
 			status     <= GET_L;
@@ -86,9 +86,9 @@ begin
 				
 				when LIGHT =>
 					
-					L_data_uns := unsigned(abs(L_data));
-					R_data_uns := unsigned(abs(R_data));
-					sum        := ('0' & L_data_uns) + ('0' & R_data_uns);
+					L_data_uns := unsigned(abs(L_data(L_data'HIGH) & L_data));
+					R_data_uns := unsigned(abs(R_data(R_data'HIGH) & R_data));
+					sum        := L_data_uns + R_data_uns;
 					avg        <= sum(sum'HIGH downto 1); -- /2
 					
 					on_led_num <= to_integer(avg) / (2**(CHANNEL_LENGHT - 1) / NUM_LEDS);
