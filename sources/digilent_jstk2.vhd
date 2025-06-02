@@ -103,20 +103,24 @@ begin
 					
 					if delay_cnt = DELAY_CNT_MAX - 1 then
 						
-						delay_cnt <= 0;
-						
-						tx_buffer(0) <= led_r;
-						tx_buffer(1) <= led_g;
-						tx_buffer(2) <= led_b;
-						
-						m_axis_tdata <= CMDSETLEDRGB;
-						m_axis_tvalid <= '1';
-						
-						tx_index <= 0;
-						tx_state <= SEND;
-						
-						rx_index <= 0;
-						rx_state <= VALID;
+						if rx_state = INVALID then
+							
+							delay_cnt <= 0;
+							
+							tx_buffer(0) <= led_r;
+							tx_buffer(1) <= led_g;
+							tx_buffer(2) <= led_b;
+							
+							m_axis_tdata <= CMDSETLEDRGB;
+							m_axis_tvalid <= '1';
+							
+							tx_index <= 0;
+							tx_state <= SEND;
+							
+							rx_index <= 0;
+							rx_state <= VALID;
+							
+						end if;
 						
 					else
 						
