@@ -52,7 +52,7 @@ architecture Behavioral of axi4tb_digilent_jstk2 is
 	constant X_VAL : integer := 300;
 	constant Y_VAL : integer := 500;
 	
-	constant DATA_STRUCT_BYTES : integer := 6; -- Match with DUT's constant!
+	constant DATA_STRUCT_BYTES : integer := 5; -- Match with DUT's constant!
 	
 	constant DATA_WIDTH : integer := 8;
 	

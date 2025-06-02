@@ -45,7 +45,7 @@ architecture Behavioral of digilent_jstk2 is
 	type RECEIVE_STATE_t is (INVALID, VALID);
 	signal rx_state : RECEIVE_STATE_t;
 	
-	constant DATA_STRUCT_BYTES : integer := 6;
+	constant DATA_STRUCT_BYTES : integer := 5;
 	
 	type DATA_BUFFER_t is array (integer range <>) of std_logic_vector(m_axis_tdata'RANGE);
 	signal tx_buffer : DATA_BUFFER_t(0 to 2); -- RGB values
