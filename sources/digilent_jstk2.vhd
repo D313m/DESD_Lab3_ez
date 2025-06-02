@@ -4,7 +4,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity digilent_jstk2 is
 	generic (
-		DELAY_US      : integer := 500;           -- Interpacket delay [us]
+		DELAY_US      : integer := 50;           -- Interpacket delay [us]
 		CLKFREQ       : integer := 100_000_000;  -- Frequency of the aclk signal [Hz]
 		SPI_SCLKFREQ  : integer := 50_000        -- Frequency of the SPI SCLK clock signal [Hz]
 	);
@@ -130,7 +130,7 @@ begin
 			TX_MNGT : case tx_state is
 				
 				when IDLE => -- Wait for interpacket delay
-					m_axis_tvalid <= '0';
+					
 					if delay_cnt = DELAY_CNT_MAX - 1 then
 						
 						delay_cnt <= 0;
@@ -155,25 +155,22 @@ begin
 					end if;
 				
 				when SEND =>
-				    m_axis_tvalid <= '1';  -- Always valid while in SEND
-
-    case tx_index is
-        when 0 | 1 | 2 =>
-            m_axis_tdata <= tx_buffer(tx_index);
-        when 3 =>
-            m_axis_tdata <= DUMMYVAL;
-        when 4 =>
-            m_axis_tdata <= (others => '0');
-    end case;
-
-    if m_axis_tready = '1' then
-        if tx_index = STD_DATA_STRUCT_BYTES - 1 then
-            m_axis_tvalid <= '0';  -- Stop after final byte accepted
-            tx_state <= IDLE;
-        else
-            tx_index <= tx_index + 1;
-        end if;
-    end if;
+					
+					if m_axis_tready = '1' then
+						
+						case tx_index is
+							when STD_DATA_STRUCT_BYTES - 1 =>
+								m_axis_tvalid <= '0';
+								tx_state <= IDLE;
+							when STD_DATA_STRUCT_BYTES - 2 =>
+								tx_index <= tx_index + 1;
+								m_axis_tdata <= DUMMYVAL;
+							when Others =>
+								tx_index <= tx_index + 1;
+								m_axis_tdata <= tx_buffer(tx_index);
+						end case;
+						
+					end if;
 					
 			end case TX_MNGT;
 			
