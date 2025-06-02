@@ -45,14 +45,14 @@ architecture Behavioral of digilent_jstk2 is
 	type RECEIVE_STATE_t is (INVALID, VALID);
 	signal rx_state : RECEIVE_STATE_t;
 	
-	constant STD_DATA_STRUCT_BYTES : integer := 5;
+	constant DATA_STRUCT_BYTES : integer := 5;
 	
 	type DATA_BUFFER_t is array (integer range <>) of std_logic_vector(m_axis_tdata'RANGE);
-	signal tx_buffer : DATA_BUFFER_t(0 to STD_DATA_STRUCT_BYTES - 3);
-	signal rx_buffer : DATA_BUFFER_t(0 to STD_DATA_STRUCT_BYTES - 2);
+	signal tx_buffer : DATA_BUFFER_t(0 to 2); -- RGB values
+	signal rx_buffer : DATA_BUFFER_t(0 to 3); -- X low, X high, Y low, Y high, fsButtons (not stored)
 	
-	signal tx_index  : integer range 0 to STD_DATA_STRUCT_BYTES - 1;
-	signal rx_index  : integer range 0 to STD_DATA_STRUCT_BYTES - 1;
+	signal tx_index  : integer range 0 to DATA_STRUCT_BYTES - 1;
+	signal rx_index  : integer range 0 to rx_buffer'HIGH    + 1;
 
 	constant DELAY_CNT_MAX : integer := CLKFREQ/ 1_000_000 * DELAY_US;
 	signal delay_cnt : integer range 0 to DELAY_CNT_MAX - 1;
@@ -78,7 +78,7 @@ begin
 		
 			RX_MNGT : if rx_state = VALID and s_axis_tvalid = '1' then
 				
-				if rx_index = STD_DATA_STRUCT_BYTES - 1 then -- fsButtons byte. Outputs can be updated.
+				if rx_index = rx_buffer'HIGH + 1 then -- fsButtons byte. Outputs can be updated.
 					
 					btn_jstk    <= s_axis_tdata(0);
 					btn_trigger <= s_axis_tdata(1);
@@ -128,17 +128,16 @@ begin
 					
 					if m_axis_tready = '1' then
 						
-						case tx_index is
-							when STD_DATA_STRUCT_BYTES - 1 =>
-								m_axis_tvalid <= '0';
-								tx_state <= IDLE;
-							when STD_DATA_STRUCT_BYTES - 2 =>
-								tx_index <= tx_index + 1;
-								m_axis_tdata <= DUMMYVAL;
-							when Others =>
-								tx_index <= tx_index + 1;
-								m_axis_tdata <= tx_buffer(tx_index);
-						end case;
+						if tx_index <= tx_buffer'HIGH then          -- RGB bytes
+							tx_index <= tx_index + 1;
+							m_axis_tdata <= tx_buffer(tx_index);
+						elsif tx_index < DATA_STRUCT_BYTES - 1 then -- Dummy bytes
+							tx_index <= tx_index + 1;
+							m_axis_tdata <= DUMMYVAL;
+						else                                        -- Last byte of the packet was read
+							m_axis_tvalid <= '0';
+							tx_state <= IDLE;
+						end if;
 						
 					end if;
 					
