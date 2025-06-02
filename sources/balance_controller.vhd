@@ -1,12 +1,12 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use ieee.numeric_std.all;
+use IEEE.NUMERIC_STD.ALL;
 
 entity balance_controller is
 	generic (
 		TDATA_WIDTH    : positive := 24;
 		BALANCE_WIDTH  : positive := 10;
-		BALANCE_STEP_2 : positive := 6  -- Balance values per step = 2**VOLUME_STEP_2
+		BALANCE_STEP_2 : positive := 6 -- Balance values per step = 2**BALANCE_STEP_2
 	);
 	Port (
 		aclk           : in  std_logic;
@@ -28,59 +28,63 @@ end balance_controller;
 
 architecture Behavioral of balance_controller is
 	
-	type DATA_BUFFER_t is array (2**((BALANCE_WIDTH-BALANCE_STEP_2)-1)-1 downto 0) of signed(TDATA_WIDTH-1 downto 0);
-	signal L_data : DATA_BUFFER_t;
-	signal R_data : DATA_BUFFER_t;
+	type BUFFER_t is record
+		tdata  : std_logic_vector(TDATA_WIDTH - 1 downto 0);
+		tlast  : std_logic;
+	end record BUFFER_t;
+	signal PL1 : BUFFER_t;
+	signal PL2 : BUFFER_t;
 	
 	signal balance_sig : signed(BALANCE_WIDTH-1 downto 0); -- Already normalized
+	signal step_number : signed(BALANCE_WIDTH-1 downto 0);
 
 begin
 
 	process(aclk, aresetn)
+		variable v_balance_sig : signed(BALANCE_WIDTH-1 downto 0);
 	begin
 		if aresetn = '0' then
-			L_data <= (Others => (Others => '0'));
-			R_data <= (Others => (Others => '0'));
+		
+			PL1 <= ((Others => '0'), '0');
+			PL2 <= ((Others => '0'), '0');
+			
 			balance_sig <= (Others => '0');
+			step_number <= (Others => '0');
 			
 		elsif rising_edge(aclk) then
+			
 			balance_sig <= signed(balance);
 			
-			if m_axis_tready = '1' and s_axis_tvalid = '1' then
+			-- Step computation that exploits the intrinsic rounding down (even for negative numbers) of the simple shift division
+			-- Step  0: [-32, +31]. (-32 + 32) / 64 =  0 and  (31 + 32) / 64 =  0
+			-- Step  1: [+32, +95].  (32 + 32) / 64 = +1 and  (95 + 32) / 64 =  +1
+			-- Step -1: [-96, -33]. (-96 + 32) / 64 = -1 and (-33 + 32) / 64 =  -1
+			step_number <= shift_right(balance_sig + 2**(BALANCE_STEP_2 - 1), BALANCE_STEP_2); 	
 			
-				if s_axis_tlast = '0' then -- Left data
-					L_data(0) <= signed(s_axis_tdata);
-					m_axis_tdata <= std_logic_vector(L_data(L_data'HIGH));
-					
-					for i in 0 to L_data'HIGH-1 loop
-						if balance_sig > + ((2**BALANCE_STEP_2) * i + (2**(BALANCE_STEP_2-1))) then -- in our case balance_sig > + (64 * i + 32)
-							L_data(i+1) <= shift_right(L_data(i), 1);
-						else
-							L_data(i+1) <= L_data(i);
-						end if;
-					end loop;
-					
-				else --Right data
-					R_data(0) <= signed(s_axis_tdata);
-					m_axis_tdata <= std_logic_vector(R_data(R_data'HIGH));
-					
-					for i in 0 to R_data'HIGH-1 loop
-						if balance_sig < - ((2**BALANCE_STEP_2) * i + (2**(BALANCE_STEP_2-1))) then -- in our case balance_sig < - (64 * i + 32)
-							R_data(i+1) <= shift_right(R_data(i), 1);
-						else
-							R_data(i+1) <= R_data(i);
-						end if;
-					end loop;
-					
+			if m_axis_tready = '1' and s_axis_tvalid = '1' then
+				
+				PL1.tdata <= s_axis_tdata;
+				PL1.tlast <= s_axis_tlast;
+				
+				
+				PL2 <= PL1;
+				
+				if step_number < 0 and PL1.tlast = '1' then
+					PL2.tdata <= std_logic_vector(shift_right(signed(PL1.tdata), to_integer(-step_number)));
+				elsif step_number >= 0 and PL1.tlast /= '1' then
+					PL2.tdata <= std_logic_vector(shift_right(signed(PL1.tdata), to_integer(step_number)));
 				end if;
-				m_axis_tlast <= s_axis_tlast;
+				
+				
+				m_axis_tdata <= PL2.tdata;
+				m_axis_tlast <= PL2.tlast;
 				
 			end if;
 			
 		end if;
 	end process;
-
+	
 	m_axis_tvalid <= s_axis_tvalid;
 	s_axis_tready <= m_axis_tready;
-
+	
 end Behavioral;
