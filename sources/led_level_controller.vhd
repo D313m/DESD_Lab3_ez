@@ -26,13 +26,13 @@ architecture Behavioral of led_level_controller is
 	
 	type STATUS_t is (WAITING, GET_L, GET_R, LIGHT);
 	signal status : STATUS_t := GET_L;
-
+	
 	constant MAX_COUNTER : integer := (refresh_time_ms * 10**6)/clock_period_ns - 1;
 	signal counter : integer range 0 to MAX_COUNTER := 0;
-
-
-	signal L_data : signed(CHANNEL_LENGHT-1 downto 0);
-	signal R_data : signed(CHANNEL_LENGHT-1 downto 0);
+	
+	
+	signal L_data :   signed(CHANNEL_LENGHT - 1 downto 0);
+	signal R_data :   signed(CHANNEL_LENGHT - 1 downto 0);
 	signal avg    : unsigned(CHANNEL_LENGHT - 1 downto 0);
 	
 	signal on_led_num : integer range 0 to NUM_LEDS-1;
