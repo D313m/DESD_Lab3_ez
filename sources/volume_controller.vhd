@@ -88,10 +88,10 @@ begin
 				
 				if PL2_tdata > HIGHER_BOUND then
 					PL3_tdata <= to_signed(HIGHER_BOUND, PL3_tdata'LENGTH);
-				elsif PL3_tdata < LOWER_BOUND then
+				elsif PL2_tdata < LOWER_BOUND then
 					PL3_tdata <= to_signed(LOWER_BOUND, PL3_tdata'LENGTH);
 				else
-					PL3_tdata <= PL2_tdata(PL3_data'RANGE);
+					PL3_tdata <= PL2_tdata(PL3_tdata'RANGE);
 				end if;
 				
 				
