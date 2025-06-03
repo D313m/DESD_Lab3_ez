@@ -78,9 +78,9 @@ begin
 				PL2_tlast <= PL1_tlast;
 				
 				if step_number < 0 then
-					PL2_tdata <= resize(shift_right(PL1_tdata, -step_number), PL2_tdata'LENGTH);
+					PL2_tdata <= shift_right(resize(PL1_tdata, PL2_tdata'LENGTH), -step_number);
 				else
-					PL2_tdata <= resize(shift_left(PL1_tdata, step_number), PL2_tdata'LENGTH);
+					PL2_tdata <= shift_left(resize(PL1_tdata, PL2_tdata'LENGTH), step_number);
 				end if;
 				
 				
