@@ -40,6 +40,7 @@ architecture Behavioral of LFO is
 	signal triangle_counter : unsigned(TRIANGULAR_COUNTER_LENGHT - 2 downto 0); -- 1 bit less
 	signal lfo_timer        : integer;  -- Timer for triangle step control
 	signal lfo_period_int   : integer;
+	signal lfo_period_sig : signed(lfo_period'RANGE);
 	
 	type PIPELINE_STAGE_t is record 
 		partial_sum : signed(CHANNEL_LENGHT + (TRIANGULAR_COUNTER_LENGHT - 1) - 1 downto 0);
@@ -58,7 +59,8 @@ begin
 		if aresetn = '0' then
 			lfo_period_int <= LFO_COUNTER_BASE_PERIOD;
 		elsif rising_edge(aclk) then
-			lfo_period_int <= LFO_COUNTER_BASE_PERIOD - ADJUSTMENT_FACTOR * to_integer(unsigned(lfo_period));
+		    lfo_period_sig <= signed(lfo_period);
+			lfo_period_int <= LFO_COUNTER_BASE_PERIOD - ADJUSTMENT_FACTOR * to_integer(lfo_period_sig);
 		end if;
 	end process;
 
@@ -141,7 +143,7 @@ begin
 	m_axis_tvalid <= s_axis_tvalid;
 	
 	m_axis_tdata <= std_logic_vector(pipeline(pipeline'HIGH).partial_sum(CHANNEL_LENGHT + (TRIANGULAR_COUNTER_LENGHT - 1) - 1 
-	                                                                                downto TRIANGULAR_COUNTER_LENGHT - 1));
+	                                                                                downto TRIANGULAR_COUNTER_LENGHT - 1)) when lfo_enable = '1' else std_logic_vector(pipeline(pipeline'HIGH).tdata);
 	m_axis_tlast <= pipeline(pipeline'HIGH).tlast;
 	
 end architecture;
