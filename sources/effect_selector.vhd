@@ -1,3 +1,8 @@
+-- This module converts the unsigned joystick outputs into signed values
+-- to avoid doing it several times downstream. It alternates between 
+-- converting the x and y values.
+-- E.G.: [0-1023] => [-512, 511]
+
 library IEEE;
 use IEEE.std_logic_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -21,8 +26,8 @@ entity effect_selector is
 end effect_selector;
 
 architecture Behavioral of effect_selector is
-	signal select_sig      : std_logic;
-	signal extended_signed : signed(JOYSTICK_LENGHT downto 0); -- 1 bit more
+	signal select_sig      : std_logic;                        -- Switches between x and y conversion
+	signal extended_signed : signed(JOYSTICK_LENGHT downto 0); -- 1 bit more to store as signed value
 begin
 	
 	process(aclk, aresetn)
@@ -41,19 +46,20 @@ begin
 			
 			select_sig <= not select_sig;
 			
-			if select_sig = '1' then
+			if select_sig = '1' then -- Stores x
 				extended_signed <= signed('0' & jstck_x);
-			else
+			else                     -- Stores y
 				extended_signed <= signed('0' & jstck_y);
 			end if;
 			
 			centered_signed := resize(extended_signed - 2**(JOYSTICK_LENGHT - 1), JOYSTICK_LENGHT);
-		
-			if effect = '1' and select_sig = '1' then
-				lfo_period <= std_logic_vector(extended_signed(lfo_period'RANGE)); -- Original value
-			elsif select_sig = '1' then
+			
+			                                          -- With effect high, ONLY the lfo_period must be updated.
+			if effect = '1' and select_sig = '1' then -- Outputs y (not converted to signed)
+				lfo_period <= std_logic_vector(extended_signed(lfo_period'RANGE));
+			elsif select_sig = '1' then               -- Also effect = '0'. Outputs y (converted to signed)
 				volume     <= std_logic_vector(centered_signed);
-			elsif effect = '0' then
+			elsif effect = '0' then                   -- Also select_sig = '0'. Outputs x (converted to signed)
 				balance    <= std_logic_vector(centered_signed);
 			end if;
 		
