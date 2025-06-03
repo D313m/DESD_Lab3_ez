@@ -46,14 +46,23 @@ architecture Behavioral of volume_controller is
   signal stage2_data  : std_logic_vector(TDATA_WIDTH-1 downto 0) := (others => '0');
   signal stage2_last  : std_logic := '0';
 
+  -- Internal ready signal
+  signal s_axis_tready_int : std_logic;
+
 begin
 
-  -- Handshake
-  s_axis_tready <= '1' when (stage1_valid = '0') or ((stage1_valid = '1') and (stage2_valid = '0') and (m_axis_tready = '1')) else '0';
+  -- External ready port driven by internal logic
+  s_axis_tready <= s_axis_tready_int;
 
+  -- AXI output interface
   m_axis_tvalid <= stage2_valid;
   m_axis_tdata  <= stage2_data;
   m_axis_tlast  <= stage2_last;
+
+  -- Ready handshake logic
+  s_axis_tready_int <= '1' when (stage1_valid = '0') or 
+                              ((stage1_valid = '1') and (stage2_valid = '0') and (m_axis_tready = '1'))
+                       else '0';
 
   process(aclk)
     variable vol_val    : integer;
@@ -71,15 +80,15 @@ begin
         stage2_data  <= (others => '0');
         stage2_last  <= '0';
       else
-        -- Stage 2 output register update
+        -- Stage 2 output logic
         if stage1_valid = '1' and ((stage2_valid = '0') or (m_axis_tready = '1')) then
           extended := resize(stage1_data, 32);
 
-          -- Shift
+          -- Exponential shift (volume control)
           if stage1_exp >= 0 then
             shifted := extended sll stage1_exp;
           else
-            shifted := shifted sra (-stage1_exp);
+            shifted := shift_right(extended, -stage1_exp);
           end if;
 
           -- Clipping
@@ -99,10 +108,11 @@ begin
           stage2_valid <= '0'; -- output consumed
         end if;
 
-        -- Stage 1 register update
-        if s_axis_tvalid = '1' and s_axis_tready = '1' then
+        -- Stage 1 input logic
+        if (s_axis_tvalid = '1') and (s_axis_tready_int = '1') then
           stage1_data <= signed(s_axis_tdata);
           stage1_last <= s_axis_tlast;
+
           vol_val := to_integer(unsigned(volume));
           offset  := vol_val - MIDPOINT;
           exp_val := offset / STEP_SIZE;
