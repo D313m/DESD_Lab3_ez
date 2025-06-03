@@ -28,6 +28,8 @@ end balance_controller;
 
 architecture Behavioral of balance_controller is
 	
+	constant MAX_POS_STEP : integer := BALANCE_WIDTH - VOLUME_STEP_2 - 1; -- 2**MAX_POS_STEP = Max. value of the positive step number
+	
 	type BUFFER_t is record
 		tdata  : std_logic_vector(TDATA_WIDTH - 1 downto 0);
 		tlast  : std_logic;
@@ -36,7 +38,7 @@ architecture Behavioral of balance_controller is
 	signal PL2 : BUFFER_t;
 	
 	signal balance_sig : signed(BALANCE_WIDTH-1 downto 0); -- Already normalized
-	signal step_number : signed(BALANCE_WIDTH-1 downto 0);
+	signal step_number : integer range -2**MAX_POS_STEP to 2**MAX_POS_STEP;
 
 begin
 
@@ -49,7 +51,7 @@ begin
 			PL2 <= ((Others => '0'), '0');
 			
 			balance_sig <= (Others => '0');
-			step_number <= (Others => '0');
+			step_number <= 0;
 			
 		elsif rising_edge(aclk) then
 			
@@ -59,7 +61,7 @@ begin
 			-- Step  0: [-32, +31]. (-32 + 32) / 64 =  0 and  (31 + 32) / 64 =  0
 			-- Step  1: [+32, +95].  (32 + 32) / 64 = +1 and  (95 + 32) / 64 =  +1
 			-- Step -1: [-96, -33]. (-96 + 32) / 64 = -1 and (-33 + 32) / 64 =  -1
-			step_number <= shift_right(balance_sig + 2**(BALANCE_STEP_2 - 1), BALANCE_STEP_2); 	
+			step_number <= to_integer(shift_right(balance_sig + 2**(BALANCE_STEP_2 - 1), BALANCE_STEP_2)); 	
 			
 			if m_axis_tready = '1' and s_axis_tvalid = '1' then
 				
@@ -70,9 +72,9 @@ begin
 				PL2 <= PL1;
 				
 				if step_number < 0 and PL1.tlast = '1' then
-					PL2.tdata <= std_logic_vector(shift_right(signed(PL1.tdata), to_integer(-step_number)));
+					PL2.tdata <= std_logic_vector(shift_right(signed(PL1.tdata), -step_number));
 				elsif step_number >= 0 and PL1.tlast /= '1' then
-					PL2.tdata <= std_logic_vector(shift_right(signed(PL1.tdata), to_integer(step_number)));
+					PL2.tdata <= std_logic_vector(shift_right(signed(PL1.tdata), step_number));
 				end if;
 				
 				

@@ -30,7 +30,7 @@ end volume_controller;
 
 architecture Behavioral of volume_controller is
 	
-	constant MAX_POS_STEP : integer := VOLUME_WIDTH - VOLUME_STEP_2 - 1; -- Max. value of the positive step number
+	constant MAX_POS_STEP : integer := VOLUME_WIDTH - VOLUME_STEP_2 - 1; -- 2**MAX_POS_STEP = Max. value of the positive step number
 	
 	signal PL1_tdata : signed(TDATA_WIDTH - 1 downto 0);
 	signal PL1_tlast : std_logic;
@@ -40,7 +40,7 @@ architecture Behavioral of volume_controller is
 	signal PL3_tlast : std_logic;
 	
 	signal volume_sig  : signed(VOLUME_WIDTH-1 downto 0); -- Already normalized
-	signal step_number : signed(VOLUME_WIDTH-1 downto 0);
+	signal step_number : integer range -2**MAX_POS_STEP to 2**MAX_POS_STEP;
 
 begin
 
@@ -57,7 +57,7 @@ begin
 			PL3_tlast <= '0';
 			
 			volume_sig  <= (Others => '0');
-			step_number <= (Others => '0');
+			step_number <= 0;
 			
 		elsif rising_edge(aclk) then
 			
@@ -67,7 +67,7 @@ begin
 			-- Step  0: [-32, +31]. (-32 + 32) / 64 =  0 and  (31 + 32) / 64 =  0
 			-- Step  1: [+32, +95].  (32 + 32) / 64 = +1 and  (95 + 32) / 64 =  +1
 			-- Step -1: [-96, -33]. (-96 + 32) / 64 = -1 and (-33 + 32) / 64 =  -1
-			step_number <= shift_right(volume_sig + 2**(VOLUME_STEP_2 - 1), VOLUME_STEP_2); 	
+			step_number <= to_integer(shift_right(volume_sig + 2**(VOLUME_STEP_2 - 1), VOLUME_STEP_2)); 	
 			
 			if m_axis_tready = '1' and s_axis_tvalid = '1' then
 				
@@ -78,9 +78,9 @@ begin
 				PL2_tlast <= PL1_tlast;
 				
 				if step_number < 0 then
-					PL2_tdata <= resize(shift_right(PL1_tdata, to_integer(-step_number)), PL2_tdata'LENGTH);
+					PL2_tdata <= resize(shift_right(PL1_tdata, -step_number), PL2_tdata'LENGTH);
 				else
-					PL2_tdata <= resize(shift_left(PL1_tdata, to_integer(step_number)), PL2_tdata'LENGTH);
+					PL2_tdata <= resize(shift_left(PL1_tdata, step_number), PL2_tdata'LENGTH);
 				end if;
 				
 				
