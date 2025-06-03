@@ -55,11 +55,11 @@ begin
 			centered_signed := resize(extended_signed - 2**(JOYSTICK_LENGHT - 1), JOYSTICK_LENGHT);
 			
 			                                          -- With effect high, ONLY the lfo_period must be updated.
-			if effect = '1' and select_sig = '1' then -- Outputs y (not converted to signed)
-				lfo_period <= std_logic_vector(extended_signed(lfo_period'RANGE));
-			elsif select_sig = '1' then               -- Also effect = '0'. Outputs y (converted to signed)
+			if effect = '1' and select_sig = '1' then -- Outputs y
+				lfo_period <= std_logic_vector(centered_signed);
+			elsif select_sig = '1' then               -- Also effect = '0'. Outputs y
 				volume     <= std_logic_vector(centered_signed);
-			elsif effect = '0' then                   -- Also select_sig = '0'. Outputs x (converted to signed)
+			elsif effect = '0' then                   -- Also select_sig = '0'. Outputs x
 				balance    <= std_logic_vector(centered_signed);
 			end if;
 		
