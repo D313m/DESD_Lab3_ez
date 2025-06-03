@@ -28,7 +28,7 @@ end balance_controller;
 
 architecture Behavioral of balance_controller is
 	
-	constant MAX_POS_STEP : integer := BALANCE_WIDTH - VOLUME_STEP_2 - 1; -- 2**MAX_POS_STEP = Max. value of the positive step number
+	constant MAX_POS_STEP : integer := BALANCE_WIDTH - BALANCE_STEP_2 - 1; -- 2**MAX_POS_STEP = Max. value of the positive step number
 	
 	type BUFFER_t is record
 		tdata  : std_logic_vector(TDATA_WIDTH - 1 downto 0);
