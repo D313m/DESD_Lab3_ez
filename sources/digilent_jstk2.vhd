@@ -1,5 +1,6 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
 entity digilent_jstk2 is
 	generic (
@@ -34,12 +35,119 @@ entity digilent_jstk2 is
 end digilent_jstk2;
 
 architecture Behavioral of digilent_jstk2 is
-	-- Code for the SetLEDRGB command, as per the JSTK2 datasheet.
-	constant CMDSETLEDRGB : std_logic_vector(7 downto 0) := x"84";
+	-- constant DELAY_US: integer :=  (8 * 5 * 1_000_000) / SPI_SCLKFREQ + 1000;
+	constant CMDSETLEDRGB : std_logic_vector(7 downto 0) := x"84"; -- SetLEDRGB command, as per the JSTK2 datasheet.
+	constant DUMMYVAL     : std_logic_vector(7 downto 0) := x"FF"; -- Value to use for PARAM4. Not reserved for commands.
 	
+	type SEND_STATE_t is (IDLE, SEND);
+	signal tx_state : SEND_STATE_t;
 	
+	type RECEIVE_STATE_t is (INVALID, VALID);
+	signal rx_state : RECEIVE_STATE_t;
+	
+	constant DATA_STRUCT_BYTES : integer := 5;
+	
+	type DATA_BUFFER_t is array (integer range <>) of std_logic_vector(m_axis_tdata'RANGE);
+	signal tx_buffer : DATA_BUFFER_t(0 to 2); -- RGB values
+	signal rx_buffer : DATA_BUFFER_t(0 to 3); -- X low, X high, Y low, Y high, fsButtons (not stored)
+	
+	signal tx_index  : integer range 0 to DATA_STRUCT_BYTES - 1;
+	signal rx_index  : integer range 0 to rx_buffer'HIGH    + 1;
+
+	constant DELAY_CNT_MAX : integer := CLKFREQ/ 1_000_000 * DELAY_US + CLKFREQ/SPI_SCLKFREQ; -- wait an extra spi delay to allow data to be sampled
+	signal delay_cnt : integer range 0 to DELAY_CNT_MAX - 1;
+
 begin
+	process(aclk)
+	begin
+		if aresetn = '0' then
+
+			tx_state <= IDLE;
+			rx_state <= INVALID;
+			delay_cnt     <= 0;
+			
+			m_axis_tvalid <= '0';
+			m_axis_tdata  <= (Others => '0');
+			
+			btn_jstk      <= '0';
+			btn_trigger   <= '0';
+			jstk_x        <= (Others => '0');
+			jstk_y        <= (Others => '0');
+			
+		elsif rising_edge(aclk) then
+		
+			RX_MNGT : if rx_state = VALID and s_axis_tvalid = '1' then
+				
+				if rx_index = rx_buffer'HIGH + 1 then -- fsButtons byte. Outputs can be updated.
+					
+					btn_jstk    <= s_axis_tdata(0);
+					btn_trigger <= s_axis_tdata(1);
+					
+					jstk_x <= rx_buffer(1)(1 downto 0) & rx_buffer(0); -- [High byte; Low Byte], Right justified.
+					jstk_y <= rx_buffer(3)(1 downto 0) & rx_buffer(2); -- [High byte; Low Byte], Right justified.
+					
+					rx_state <= INVALID;
+					
+				else -- X and Y position bytes
+					
+					rx_index <= rx_index + 1;
+					rx_buffer(rx_index) <= s_axis_tdata;
+					
+				end if;
+				
+			end if RX_MNGT;
+		
+			TX_MNGT : case tx_state is
+				
+				when IDLE => -- Wait for interpacket delay
+					
+					if delay_cnt = DELAY_CNT_MAX - 1 then
+						
+						if rx_state = INVALID then
+							
+							delay_cnt <= 0;
+							
+							tx_buffer(0) <= led_r;
+							tx_buffer(1) <= led_g;
+							tx_buffer(2) <= led_b;
+							
+							m_axis_tdata <= CMDSETLEDRGB;
+							m_axis_tvalid <= '1';
+							
+							tx_index <= 0;
+							tx_state <= SEND;
+							
+							rx_index <= 0;
+							rx_state <= VALID;
+							
+						end if;
+						
+					else
+						
+						delay_cnt <= delay_cnt + 1;
+						
+					end if;
+				
+				when SEND =>
+					
+					if m_axis_tready = '1' then
+						
+						if tx_index <= tx_buffer'HIGH then          -- RGB bytes
+							tx_index <= tx_index + 1;
+							m_axis_tdata <= tx_buffer(tx_index);
+						elsif tx_index < DATA_STRUCT_BYTES - 1 then -- Dummy bytes
+							tx_index <= tx_index + 1;
+							m_axis_tdata <= DUMMYVAL;
+						else                                        -- Last byte of the packet was read
+							m_axis_tvalid <= '0';
+							tx_state <= IDLE;
+						end if;
+						
+					end if;
+					
+			end case TX_MNGT;
+			
+		end if;
+	end process;
 	
-	
-	
-end architecture;
+end Behavioral;
