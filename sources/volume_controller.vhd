@@ -91,7 +91,7 @@ begin
 				elsif PL3_tdata < LOWER_BOUND then
 					PL3_tdata <= to_signed(LOWER_BOUND, PL3_tdata'LENGTH);
 				else
-					PL3_tdata <= resize(PL2_tdata, PL3_tdata'LENGTH);
+					PL3_tdata <= PL2_tdata(PL3_data'RANGE);
 				end if;
 				
 				
