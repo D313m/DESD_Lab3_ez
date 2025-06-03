@@ -34,7 +34,7 @@ architecture Behavioral of volume_controller is
 	
 	signal PL1_tdata : signed(TDATA_WIDTH - 1 downto 0);
 	signal PL1_tlast : std_logic;
-	signal PL2_tdata : signed(TDATA_WIDTH + MAX_POS_STEP - 1 downto 0); -- To account for left shift
+	signal PL2_tdata : signed(TDATA_WIDTH + 2**MAX_POS_STEP - 1 downto 0); -- To account for left shift
 	signal PL2_tlast : std_logic;
 	signal PL3_tdata : signed(TDATA_WIDTH - 1 downto 0);
 	signal PL3_tlast : std_logic;
