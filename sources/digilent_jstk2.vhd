@@ -54,7 +54,7 @@ architecture Behavioral of digilent_jstk2 is
 	signal tx_index  : integer range 0 to DATA_STRUCT_BYTES - 1;
 	signal rx_index  : integer range 0 to rx_buffer'HIGH    + 1;
 
-	constant DELAY_CNT_MAX : integer := CLKFREQ/ 1_000_000 * DELAY_US;
+	constant DELAY_CNT_MAX : integer := CLKFREQ/ 1_000_000 * DELAY_US + CLKFREQ/SPI_SCLKFREQ; -- wait an extra spi delay
 	signal delay_cnt : integer range 0 to DELAY_CNT_MAX - 1;
 
 begin
