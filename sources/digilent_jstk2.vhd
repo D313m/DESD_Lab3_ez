@@ -4,9 +4,9 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity digilent_jstk2 is
 	generic (
-		-- DELAY_US      : integer := 50;           -- Interpacket delay [us]
+		DELAY_US      : integer := 25;           -- Interpacket delay [us]
 		CLKFREQ       : integer := 100_000_000;  -- Frequency of the aclk signal [Hz]
-		SPI_SCLKFREQ  : integer := 66_666        -- Frequency of the SPI SCLK clock signal [Hz]		
+		SPI_SCLKFREQ  : integer := 5000        -- Frequency of the SPI SCLK clock signal [Hz]		
 	);
 	Port ( 
 		aclk          : in  std_logic;
@@ -35,7 +35,7 @@ entity digilent_jstk2 is
 end digilent_jstk2;
 
 architecture Behavioral of digilent_jstk2 is
-	constant DELAY_US: integer :=  (8 * 5 * 1_000_000) / SPI_SCLKFREQ + 1000;
+	-- constant DELAY_US: integer :=  (8 * 5 * 1_000_000) / SPI_SCLKFREQ + 1000;
 	constant CMDSETLEDRGB : std_logic_vector(7 downto 0) := x"84"; -- SetLEDRGB command, as per the JSTK2 datasheet.
 	constant DUMMYVAL     : std_logic_vector(7 downto 0) := x"FF"; -- Value to use for PARAM4. Not reserved for commands.
 	
