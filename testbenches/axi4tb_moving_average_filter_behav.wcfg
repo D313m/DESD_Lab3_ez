@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="axi4tb_moving_average_filter_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="axi4tb_moving_average_filter" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="871666fs"></ZoomStartTime>
+      <ZoomEndTime time="1025667fs"></ZoomEndTime>
+      <Cursor1Time time="1000000fs"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="174"></NameColumnWidth>
+      <ValueColumnWidth column_width="84"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="5" />
+   <wvobject fp_name="/axi4tb_moving_average_filter/clk" type="logic">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+      <obj_property name="CustomSignalColor">#DCDCDC</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+   </wvobject>
+   <wvobject fp_name="/axi4tb_moving_average_filter/aresetn" type="logic">
+      <obj_property name="ElementShortName">aresetn</obj_property>
+      <obj_property name="ObjectShortName">aresetn</obj_property>
+      <obj_property name="CustomSignalColor">#DCDCDC</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+   </wvobject>
+   <wvobject fp_name="group152" type="group">
+      <obj_property name="label">s_axis</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/axi4tb_moving_average_filter/s_axis_tdata" type="array">
+         <obj_property name="ElementShortName">s_axis_tdata[23:0]</obj_property>
+         <obj_property name="ObjectShortName">s_axis_tdata[23:0]</obj_property>
+         <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+         <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/s_axis_tvalid" type="logic">
+         <obj_property name="ElementShortName">s_axis_tvalid</obj_property>
+         <obj_property name="ObjectShortName">s_axis_tvalid</obj_property>
+         <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/s_axis_tready" type="logic">
+         <obj_property name="ElementShortName">s_axis_tready</obj_property>
+         <obj_property name="ObjectShortName">s_axis_tready</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/s_axis_tlast" type="logic">
+         <obj_property name="ElementShortName">s_axis_tlast</obj_property>
+         <obj_property name="ObjectShortName">s_axis_tlast</obj_property>
+         <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="group153" type="group">
+      <obj_property name="label">m_axis</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/axi4tb_moving_average_filter/m_axis_tdata" type="array">
+         <obj_property name="ElementShortName">m_axis_tdata[23:0]</obj_property>
+         <obj_property name="ObjectShortName">m_axis_tdata[23:0]</obj_property>
+         <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/m_axis_tvalid" type="logic">
+         <obj_property name="ElementShortName">m_axis_tvalid</obj_property>
+         <obj_property name="ObjectShortName">m_axis_tvalid</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/m_axis_tready" type="logic">
+         <obj_property name="ElementShortName">m_axis_tready</obj_property>
+         <obj_property name="ObjectShortName">m_axis_tready</obj_property>
+         <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/m_axis_tlast" type="logic">
+         <obj_property name="ElementShortName">m_axis_tlast</obj_property>
+         <obj_property name="ObjectShortName">m_axis_tlast</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="group154" type="group">
+      <obj_property name="label">Internal</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/PL1_tvalid" type="logic">
+         <obj_property name="ElementShortName">PL1_tvalid</obj_property>
+         <obj_property name="ObjectShortName">PL1_tvalid</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/PL2_tvalid" type="logic">
+         <obj_property name="ElementShortName">PL2_tvalid</obj_property>
+         <obj_property name="ObjectShortName">PL2_tvalid</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/PL3_tvalid" type="logic">
+         <obj_property name="ElementShortName">PL3_tvalid</obj_property>
+         <obj_property name="ObjectShortName">PL3_tvalid</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/s_axis_tdata_sig" type="array">
+         <obj_property name="ElementShortName">s_axis_tdata_sig[23:0]</obj_property>
+         <obj_property name="ObjectShortName">s_axis_tdata_sig[23:0]</obj_property>
+         <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/s_axis_tlast_sig" type="logic">
+         <obj_property name="ElementShortName">s_axis_tlast_sig</obj_property>
+         <obj_property name="ObjectShortName">s_axis_tlast_sig</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/filter_diff" type="array">
+         <obj_property name="ElementShortName">filter_diff[24:0]</obj_property>
+         <obj_property name="ObjectShortName">filter_diff[24:0]</obj_property>
+         <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/data_buffer_L" type="array">
+         <obj_property name="ElementShortName">data_buffer_L[31:0][23:0]</obj_property>
+         <obj_property name="ObjectShortName">data_buffer_L[31:0][23:0]</obj_property>
+         <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/data_buffer_R" type="array">
+         <obj_property name="ElementShortName">data_buffer_R[31:0][23:0]</obj_property>
+         <obj_property name="ObjectShortName">data_buffer_R[31:0][23:0]</obj_property>
+         <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/filter_sum_L" type="array">
+         <obj_property name="ElementShortName">filter_sum_L[28:0]</obj_property>
+         <obj_property name="ObjectShortName">filter_sum_L[28:0]</obj_property>
+         <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject fp_name="/axi4tb_moving_average_filter/DUT_inst/filter_sum_R" type="array">
+         <obj_property name="ElementShortName">filter_sum_R[28:0]</obj_property>
+         <obj_property name="ObjectShortName">filter_sum_R[28:0]</obj_property>
+         <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+         <obj_property name="CustomSignalColor">#00FF7F</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+   </wvobject>
+</wave_config>

@@ -4,13 +4,13 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity digilent_jstk2 is
 	generic (
-		DELAY_US      : integer := 25;           -- Interpacket delay [us]
+		DELAY_US      : integer := 25;           -- Delay [us] between two packets
 		CLKFREQ       : integer := 100_000_000;  -- Frequency of the aclk signal [Hz]
-		SPI_SCLKFREQ  : integer := 5000        -- Frequency of the SPI SCLK clock signal [Hz]		
+		SPI_SCLKFREQ  : integer := 50_000        -- Frequency of the SPI SCLK clock signal [Hz]
 	);
 	Port ( 
 		aclk          : in  std_logic;
-		aresetn       : in  std_logic;
+		aresetn	      : in  std_logic;
 		
 		-- Data going to the SPI IP-Core
 		m_axis_tvalid : out std_logic;
@@ -54,7 +54,7 @@ architecture Behavioral of digilent_jstk2 is
 	signal tx_index  : integer range 0 to DATA_STRUCT_BYTES - 1;
 	signal rx_index  : integer range 0 to rx_buffer'HIGH    + 1;
 
-	constant DELAY_CNT_MAX : integer := CLKFREQ/ 1_000_000 * DELAY_US + CLKFREQ/SPI_SCLKFREQ; -- wait an extra spi delay
+	constant DELAY_CNT_MAX : integer := CLKFREQ/ 1_000_000 * DELAY_US + CLKFREQ/SPI_SCLKFREQ; -- wait an extra spi delay to allow data to be sampled
 	signal delay_cnt : integer range 0 to DELAY_CNT_MAX - 1;
 
 begin
