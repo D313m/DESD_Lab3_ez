@@ -43,7 +43,7 @@ architecture Behavioral of balance_controller is
 begin
 
 	process(aclk, aresetn)
-		variable v_balance_sig : signed(BALANCE_WIDTH-1 downto 0);
+		variable v_balance_sig : signed(BALANCE_WIDTH downto 0);
 	begin
 		if aresetn = '0' then
 		
@@ -61,7 +61,8 @@ begin
 			-- Step  0: [-32, +31]. (-32 + 32) / 64 =  0 and  (31 + 32) / 64 =  0
 			-- Step  1: [+32, +95].  (32 + 32) / 64 = +1 and  (95 + 32) / 64 =  +1
 			-- Step -1: [-96, -33]. (-96 + 32) / 64 = -1 and (-33 + 32) / 64 =  -1
-			step_number <= to_integer(shift_right(balance_sig + 2**(BALANCE_STEP_2 - 1), BALANCE_STEP_2)); 	
+			v_balance_sig := (balance_sig(balance_sig'HIGH) & balance_sig) + to_signed(2**(BALANCE_STEP_2 - 1), v_balance_sig'LENGTH);
+			step_number <= to_integer(shift_right(v_balance_sig, BALANCE_STEP_2)); 	
 			
 			if m_axis_tready = '1' and s_axis_tvalid = '1' then
 				

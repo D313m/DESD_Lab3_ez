@@ -45,7 +45,7 @@ architecture Behavioral of volume_controller is
 begin
 
 	process(aclk, aresetn)
-		variable v_volume_sig : signed(VOLUME_WIDTH-1 downto 0);
+		variable v_volume_sig : signed(VOLUME_WIDTH downto 0);
 	begin
 		if aresetn = '0' then
 		
@@ -67,7 +67,8 @@ begin
 			-- Step  0: [-32, +31]. (-32 + 32) / 64 =  0 and  (31 + 32) / 64 =  0
 			-- Step  1: [+32, +95].  (32 + 32) / 64 = +1 and  (95 + 32) / 64 =  +1
 			-- Step -1: [-96, -33]. (-96 + 32) / 64 = -1 and (-33 + 32) / 64 =  -1
-			step_number <= to_integer(shift_right(volume_sig + 2**(VOLUME_STEP_2 - 1), VOLUME_STEP_2)); 	
+			v_volume_sig := (volume_sig(volume_sig'HIGH) & volume_sig) + to_signed(2**(VOLUME_STEP_2 - 1), v_volume_sig'LENGTH);
+			step_number <= to_integer(shift_right(v_volume_sig, VOLUME_STEP_2)); 	
 			
 			if m_axis_tready = '1' and s_axis_tvalid = '1' then
 				
