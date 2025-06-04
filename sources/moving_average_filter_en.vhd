@@ -1,6 +1,6 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use ieee.numeric_std.all;
+use IEEE.NUMERIC_STD.ALL;
 
 entity moving_average_filter_en is
 	generic (
@@ -32,14 +32,15 @@ architecture Behavioral of moving_average_filter_en is
 	signal filter_sum_L : SUM_BUFFER_t;                                              -- It is updated by calculating the difference of the oldest datum in
 	signal filter_sum_R : SUM_BUFFER_t;                                              -- the buffer with the new one instead of computing the whole sum every time.
 	
-	signal counter_L : unsigned(FILTER_ORDER_POWER - 1 downto 0);
-	signal counter_R : unsigned(FILTER_ORDER_POWER - 1 downto 0);
+	signal pointer_L : unsigned(FILTER_ORDER_POWER - 1 downto 0);
+	signal pointer_R : unsigned(FILTER_ORDER_POWER - 1 downto 0);
 	
 	type DATA_BUFFER_t is array (2**FILTER_ORDER_POWER - 1 downto 0) of signed(s_axis_tdata'RANGE);
 	signal data_buffer_L : DATA_BUFFER_t;
 	signal data_buffer_R : DATA_BUFFER_t;
 	
 	signal s_axis_tdata_sig  : signed(s_axis_tdata'RANGE);
+	signal s_axis_tdata_sig2 : signed(s_axis_tdata'RANGE);
 	
 	signal filter_diff : signed(s_axis_tdata'LENGTH downto 0); -- 1 more bit needed to store the result.
 	
@@ -60,7 +61,6 @@ begin
 	process(aclk, aresetn)
 	
 		variable filter_sum_v  : SUM_BUFFER_t;
-		variable next_count    : unsigned(FILTER_ORDER_POWER - 1 downto 0);
 		
 		variable PL1_ready : boolean;
 		variable PL2_ready : boolean;
@@ -77,14 +77,15 @@ begin
 			s_axis_tready_sig <= '0';
 			enable_filter_sig <= '0';
 			s_axis_tdata_sig  <= (Others => '0');
+			s_axis_tdata_sig2 <= (Others => '0');
 			m_axis_tdata      <= (Others => '0');
 			
 			PL1 <= (Others => '0');
 			PL2 <= (Others => '0');
 			PL3 <= (Others => '0');
 			
-			counter_L <= (Others => '0');
-			counter_R <= (Others => '0');
+			pointer_L <= (Others => '0');
+			pointer_R <= (Others => '0');
 			
 		elsif rising_edge(aclk) then
 			
@@ -117,10 +118,8 @@ begin
 				
 				if enable_filter_sig = '1' then
 					m_axis_tdata <= std_logic_vector(filter_sum_v(filter_sum_v'HIGH downto filter_sum_v'HIGH - (m_axis_tdata'LENGTH - 1))); -- Rounded down (even negatives)
-				elsif PL2.tlast = '1' then -- R
-					m_axis_tdata <= std_logic_vector(data_buffer_R(to_integer(counter_R)));
-				else
-					m_axis_tdata <= std_logic_vector(data_buffer_L(to_integer(counter_L)));
+				else -- All-pass: Data is not modified
+					m_axis_tdata <= std_logic_vector(s_axis_tdata_sig2);
 				end if;
 
 			end if;
@@ -130,27 +129,23 @@ begin
 				PL1.tvalid <= '0';
 				PL2 <= PL1;
 				
+				s_axis_tdata_sig2 <= s_axis_tdata_sig;
+				
 				if PL1.tlast = '1' then -- R
 					
-					next_count := counter_R + 1;
+					filter_diff <= resize(s_axis_tdata_sig, TDATA_WIDTH + 1) - resize(data_buffer_R(to_integer(pointer_R)), TDATA_WIDTH + 1);
 					
-					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
-					               (data_buffer_R(to_integer(next_count))(s_axis_tdata'HIGH) & data_buffer_R(to_integer(next_count)));
+					data_buffer_R(to_integer(pointer_R)) <= s_axis_tdata_sig;
 					
-					data_buffer_R(to_integer(counter_R)) <= s_axis_tdata_sig;
-					
-					counter_R <= next_count;
+					pointer_R <= pointer_R + 1;
 					
 				else -- L
 					
-					next_count := counter_L + 1;
+					filter_diff <= resize(s_axis_tdata_sig, TDATA_WIDTH + 1) - resize(data_buffer_L(to_integer(pointer_L)), TDATA_WIDTH + 1);
 					
-					filter_diff <= (s_axis_tdata_sig(s_axis_tdata_sig'HIGH) & s_axis_tdata_sig) - 
-					               (data_buffer_L(to_integer(next_count))(s_axis_tdata'HIGH) & data_buffer_L(to_integer(next_count)));
+					data_buffer_L(to_integer(pointer_L)) <= s_axis_tdata_sig;
 					
-					data_buffer_L(to_integer(counter_L)) <= s_axis_tdata_sig;
-					
-					counter_L <= next_count;
+					pointer_L <= pointer_L + 1;
 					
 				end if;
 				
