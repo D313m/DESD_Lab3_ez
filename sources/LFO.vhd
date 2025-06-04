@@ -36,9 +36,10 @@ architecture Behavioral of LFO is
 	constant ADJUSTMENT_FACTOR          : integer := 90; -- Multiplicative factor to scale the joystick y position input into a delta of the LFO counter 
 	                                                     -- period [clock cycles]. NOTE: Frequency dependent! (as instructed)
 	
-	signal lfo_counter                  : integer range 0 to LFO_COUNTER_BASE_PERIOD - ADJUSTMENT_FACTOR * (-2**(JOYSTICK_LENGHT - 1));
+	signal lfo_counter                  : integer range 0 to LFO_COUNTER_BASE_PERIOD - ADJUSTMENT_FACTOR * (-(2**(JOYSTICK_LENGHT - 1)));
 	signal lfo_period_int               : integer range LFO_COUNTER_BASE_PERIOD - ADJUSTMENT_FACTOR * (2**(JOYSTICK_LENGHT - 1) - 1) to 
-	                                                    LFO_COUNTER_BASE_PERIOD - ADJUSTMENT_FACTOR * (-2**(JOYSTICK_LENGHT - 1));
+	                                                    LFO_COUNTER_BASE_PERIOD - ADJUSTMENT_FACTOR * (-(2**(JOYSTICK_LENGHT - 1)));
+	signal lfo_period_delta_adjusted    : integer range ADJUSTMENT_FACTOR * (-(2**(JOYSTICK_LENGHT - 1))) to ADJUSTMENT_FACTOR * (2**(JOYSTICK_LENGHT - 1) - 1);
 	signal lfo_period_delta             : signed(lfo_period'RANGE);  -- Yet to be scaled by ADJUSTMENT_FACTOR
 	
 	
@@ -72,8 +73,9 @@ begin
 			
 		elsif rising_edge(aclk) then
 			
-			lfo_period_int   <= LFO_COUNTER_BASE_PERIOD - ADJUSTMENT_FACTOR * to_integer(lfo_period_delta);
-			lfo_period_delta <= signed(lfo_period);
+			lfo_period_int            <= LFO_COUNTER_BASE_PERIOD - lfo_period_delta_adjusted;
+			lfo_period_delta          <= signed(lfo_period);
+			lfo_period_delta_adjusted <= ADJUSTMENT_FACTOR * to_integer(lfo_period_delta);
 			
 		end if;
 	end process LFO_PERIOD_CALC;

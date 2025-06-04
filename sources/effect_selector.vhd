@@ -37,7 +37,7 @@ begin
 			
 			volume     <= (Others => '0');
 			balance    <= (Others => '0');
-			lfo_period <= (Others => '1'); -- The longest period
+			lfo_period <= (Others => '0');
 			
 			extended_signed <= (Others => '0');
 			select_sig <= '0';
