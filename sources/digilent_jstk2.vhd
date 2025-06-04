@@ -35,7 +35,7 @@ entity digilent_jstk2 is
 end digilent_jstk2;
 
 architecture Behavioral of digilent_jstk2 is
-	-- constant DELAY_US: integer :=  (8 * 5 * 1_000_000) / SPI_SCLKFREQ + 1000;
+	
 	constant CMDSETLEDRGB : std_logic_vector(7 downto 0) := x"84"; -- SetLEDRGB command, as per the JSTK2 datasheet.
 	constant DUMMYVAL     : std_logic_vector(7 downto 0) := x"FF"; -- Value to use for PARAM4. Not reserved for commands.
 	
@@ -54,7 +54,7 @@ architecture Behavioral of digilent_jstk2 is
 	signal tx_index  : integer range 0 to DATA_STRUCT_BYTES - 1;
 	signal rx_index  : integer range 0 to rx_buffer'HIGH    + 1;
 
-	constant DELAY_CNT_MAX : integer := CLKFREQ/ 1_000_000 * DELAY_US + CLKFREQ/SPI_SCLKFREQ; -- wait an extra spi delay to allow data to be sampled
+	constant DELAY_CNT_MAX : integer := (CLKFREQ / 1_000_000 * DELAY_US) + (CLKFREQ / SPI_SCLKFREQ); -- Wait an extra SPI delay
 	signal delay_cnt : integer range 0 to DELAY_CNT_MAX - 1;
 
 begin
